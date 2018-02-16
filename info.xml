@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<extension key="com.groupwho.paperlesstrans" type="module">
+  <file>paperlesstrans</file>
+  <name>Paperless Transaction Payment Processor</name>
+  <description>Process credit card and ACH payments via Paperless Transaction.</description>
+  <license>AGPL-3.0</license>
+  <maintainer>
+    <author>Mohammad Hussain</author>
+    <email>mhussain@paperlesstrans.com</email>
+  </maintainer>
+  <urls>
+    <url desc="Main Extension Page">http://www.paperlesstrans.com</url>
+    <url desc="Documentation">http://www.paperlesstrans.com</url>
+    <url desc="Support">http://www.paperlesstrans.com/contact-us</url>
+    <url desc="Licensing">http://www.gnu.org/licenses/agpl-3.0.html</url>
+  </urls>
+  <releaseDate>2017-02-24</releaseDate>
+  <version>4.6.0</version>
+  <develStage>beta</develStage>
+  <compatibility>
+    <ver>4.6</ver>
+    <ver>4.7</ver>
+  </compatibility>
+  <comments>Payment processor for paperlesstrans.com integration.</comments>
+  <civix>
+    <namespace>CRM/Paperlesstrans</namespace>
+  </civix>
+</extension>

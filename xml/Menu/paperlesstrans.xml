@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<menu>
+  <item>
+    <path>civicrm/PaperlessForm</path>
+    <page_callback>CRM_Paperlesstrans_Form_PaperlessForm</page_callback>
+    <title>PaperlessForm</title>
+    <access_arguments>access CiviCRM</access_arguments>
+  </item>
+</menu>
