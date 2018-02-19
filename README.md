@@ -1,6 +1,6 @@
 com.groupwho.paperlesstrans
 ===============
-CiviCRM Extension for Paperless Transaction Corporation Payment Processor - Date: Dec 28, 2017. 
+CiviCRM Extension for Paperless Transaction Corporation Payment Processor 
 
 This README.md contains information specific to system administrators/developers. 
 
@@ -9,18 +9,16 @@ Requirements
 
 1. CiviCRM 4.6.x or 4.7.x. We strongly recommend that you keep up with the most recent version of each branch.
 
-2. Your PHP needs to include the SOAP extension (php.net/manual/en/soap.setup.php), recommended that you use at least PHP 5.6 but 5.3 and above should work if it supports TLS1.1/1.2 and SHA-256.
+2. PHP needs to include the SOAP extension (php.net/manual/en/soap.setup.php). Recommend that you use at least PHP 5.6 but 5.3 and above should work if it supports TLS1.1/1.2 and SHA-256.
 
-3. To use this extension in production, You must have a Paperless Transaction's Payments Account - and have configured it to accept payment though WebServices. You can use the shared test account credentials for initial setup and testing. To know more about the Paperless Transaction Corporation's BackOffice API, please see the Documentation Resource: http://apidocs.paperlesstrans.com/api-overview.php
+3. To use this extension in production, you must have a Paperless Transaction's Payments Account and have configured it to accept payment though WebServices. You can use the shared test account credentials for initial setup and testing. To know more about the Paperless Transaction Corporation's BackOffice API, please see the Documentation Resource: http://apidocs.paperlesstrans.com/api-overview.php
 
-4. To handle ACH/EFT Contributions (verification of them) and to handle Recurring Contributions (of any type) you must configure cron for your CiviCRM install. Information about how to do this can be found in: http://wiki.civicrm.org/confluence/display/CRMDOC/Managing+Scheduled+Jobs
-Eg: Using crontab:
-/5 * * * * wget -O - -q -t 1 "../civicrm/bin/cron.php?name="your-username"&pass="your-password"&key="your-site-key"
+4. To handle ACH/EFT contribution verification and to handle Recurring Contributions (of any type) you must configure scheduled jobs through a cron job for your CiviCRM install. Information about how to do this can be found in: http://wiki.civicrm.org/confluence/display/CRMDOC/Managing+Scheduled+Jobs.
 
 Installation
 ------------
 
-This extension follows the standard installation method - if you've got a supported CiviCRM version and you've set up your extensions directory, it'll appear in the Manage Extensions list as 'Paperless Transaction Payment Processor (com.groupwho.paperlesstrans)'. Hit Install.
+This extension follows the standard CiviCRM extension installation method. Download and unpack the extension to your configured extension director, browse to the extension manager in the CiviCRM interface, refresh the list and install the 'Paperless Transaction Payment Processor (com.paperlesstrans.civicrm)' extension.
 
 If you need help with installing extensions, try: https://wiki.civicrm.org/confluence/display/CRMDOC/Extensions
 
@@ -36,7 +34,7 @@ Once the extension is installed, you need to add the payment processor(s) and in
 
 4. The test account uses Username = 18304896-329f-4b2e-a6e4-b39157dafeda and Password = 390489817. This is a shared test account, so don't put in any private information.
 
-5. If you'd like to test using live workflows, you can just temporarily use the test account credentials in your live processor fields.
+5. If you'd like to test using live workflows, you can temporarily use the test account credentials in your live processor fields.
 
 6. Create a Contribution Page (or go to an existing one) -> Under Configure -> Contribution Amounts -> select your newly installed/configured Payment Processor(s), and Save.
 
@@ -61,9 +59,9 @@ Extension Testing Notes
 
 4. To test recurring contributions - try creating a recurring contribution for every day and then go back the next day and manually trigger Scheduled Job.
 
-Once you're happy all is well - then all you need to do is update the Payment Processor data - with your own Paperless Transaction's Login credentials.
+Once tested using the test credentials, update the Payment Processor record(s) with your own Paperless Transaction's Login credentials.
 
-Also remember to turn off debugging/logging on any production environment!
+Remember to turn off debugging/logging on any production environment.
 
 Issues & Limitations 
 --------------------
@@ -72,9 +70,7 @@ Some issues may be related to core CiviCRM issues, and may not have an immediate
 
 Limitations of using future date feature:
 
-* The future date feature on the CiviCRM can run on Drupal, Joomla and WordPress only.
 * The future date feature will automatically be enabled for both one-time/recurring contributions when Paperless Transactions' Payment Processor is used on a Contribution Page.
 * Custom fields are not passed into the future date feature on the Contribution Page. For any modification to the Contribution Page's front end layout or form fields, please reach out to us at mhussain@paperlesstrans.com and we'll send you an email with those features to add into your form.
-
 
 Please post an issue to the github repository if you have any questions.
