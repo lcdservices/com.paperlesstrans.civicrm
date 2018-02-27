@@ -1,14 +1,16 @@
 <?php
 
-//notes for later:
-//1. using processor_id will obsolete paperless_profile table
-//2. first payment of recur in civi has trxn-id of schedule not first trxn. But has
-//   a custom field with invoice ID which should match.
+//NOTES:
+//1. There is a provision to store processor_id in recur table, doing so will make 
+//   paperless_profile table obsolete.
+//2. First payment of recur in civi has trxn-id of schedule, and not of first trxn. 
+//   However first trxn has a custom field (field_1) with invoice ID which should 
+//   with invoice ID of initiated first payment in civi.
 //
-//fixme:
-//use a limit for num of records to process per cron run   
-//test if recur gets closed.
-//see if invoice needs to be different than trxn for ipn created records
+//FIXME:
+//- performance - use a limit for num of records to process per cron run. Or fetch
+//  only "most likely to have updates" records.   
+//- see if invoice needs to be different than trxn for ipn created records
 
 /**
  * Paperless.Processrecur API uses paperless report api to fetch transactions  
@@ -20,44 +22,44 @@
  * @see http://wiki.civicrm.org/confluence/display/CRMDOC/API+Architecture+Standards
  */
 function civicrm_api3_paperless_processrecur($params) {
-  // fixme: make api call with type and mode or we can also retreive from recurr
-  // record. 
-  $result = civicrm_api3('PaymentProcessor', 'get', array(
-    'sequential'   => 1,
-    'return'       => array("user_name", "password"),
-    'url_site'     => "http://svc.paperlesstrans.com:8888/?wsdl",
-    'payment_type' => 1,
-  ));
+  $limit = CRM_Utils_Array::value('limit', $params, 10);
+  $count = 0;
 
-  $id  = $result["values"][0]["user_name"];
-  $password = $result["values"][0]["password"];
-  // fixme: url could be retrrieved from $result of payprocessor api.
-  // fixme: turn off trace for production
-  $client = new SoapClient("http://svc.paperlesstrans.com:8888/?wsdl", array('trace' => 1, 'exceptions' => 0));
-  $token  = array( 
-    "token" => array(  
-      "TerminalID"  =>  $id,
-      "TerminalKey" =>  $password
-    ),
-  );
-
-  $sql = "
-    select pp.profile_number, pp.recur_id, cr.* from civicrm_paperlesstrans_profilenumbers pp
-    inner join civicrm_contribution_recur cr on pp.recur_id = cr.id
-    where cr.end_date is null";// fixme: also check cr.contribution-status-id
+  // Use civicrm_paperlesstrans_profilenumbers table to fetch recur records
+  // along with their profile numbers.
+  $sql = "SELECT pp.profile_number, pp.recur_id, cr.* 
+    FROM civicrm_paperlesstrans_profilenumbers pp
+    INNER JOIN civicrm_contribution_recur cr on pp.recur_id = cr.id
+    WHERE cr.end_date is null";// fixme: also check cr.contribution-status-id
   $dao = CRM_Core_DAO::executeQuery($sql);
-  while ($dao->fetch()) {
-    $params = $token + array( 
+  while ($dao->fetch() && ($count <= $limit)) {
+    $paymentProcessor = CRM_Financial_BAO_PaymentProcessor::getPayment($dao->payment_processor_id);
+    //fixme: turn off trace for production
+    $client = new SoapClient($paymentProcessor["url_site"], array(
+      'trace'      => 1, 
+      'exceptions' => 0
+    ));
+    $params = array( 
+      "token" => array(  
+        "TerminalID"  =>  $paymentProcessor["user_name"],
+        "TerminalKey" =>  $paymentProcessor["password"]
+      ),
       "fromDateTime"  =>  CRM_Utils_Date::customFormat($dao->start_date, '%m/%d/%Y 00:00'),
       "toDateTime"    =>  date('m/d/Y 23:59'),
       "profileNumber" =>  $dao->profile_number,
       "includeTests"  =>  1,
     );
+
     $run = $client->__call( "SearchTransactionsByProfile", array("parameters" => $params) ); 
+    // Note: TransactionObject is an object with only 1 transaction if there are
+    // no more than 1 payment, which should already exist in civi. And it's an 
+    // array if there are more than 1 payments, which is what we interested in.
     if (!empty($run->SearchTransactionsByProfileResult->TransactionObject) && 
       is_array($run->SearchTransactionsByProfileResult->TransactionObject)) 
     {
       foreach ($run->SearchTransactionsByProfileResult->TransactionObject as $trxn) {
+        if ($count >= $limit) break;
+
         if (!empty($trxn->CustomFields->Field_1) && substr($name, 0, 11) == 'Invoice ID:') {
           // this should exist in civi as first payment for recur
           CRM_Core_Error::debug_log_message("Skipping first payment. {$trxn}");
@@ -98,6 +100,7 @@ function civicrm_api3_paperless_processrecur($params) {
             $queryParams
           );
           CRM_Core_Error::debug_log_message("New transaction (ID: {$trxn->ID}) added to recurring contribution (ID: {$dao->recur_id}).");
+          $count++;
         }
       }
     }
