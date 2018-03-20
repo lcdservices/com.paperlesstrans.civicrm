@@ -1,5 +1,5 @@
-Package: com.groupwho.paperlesstrans
-Copyright (C) 2016, Joshua Walker <josh@groupwho.com>
+Package: com.paperlesstrans.civicrm
+Copyright (C) 2018, Paperless Transactions
 Licensed under the GNU Affero Public License 3.0 (below).
 
 -------------------------------------------------------------------------------

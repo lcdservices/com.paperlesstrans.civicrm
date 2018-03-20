@@ -45,7 +45,7 @@ class CRM_Paperlesstrans_Upgrader_Base {
     if (!self::$instance) {
       // FIXME auto-generate
       self::$instance = new CRM_Paperlesstrans_Upgrader(
-        'com.groupwho.paperlesstrans',
+        'com.paperlesstrans.civicrm',
         realpath(__DIR__ . '/../../../')
       );
     }

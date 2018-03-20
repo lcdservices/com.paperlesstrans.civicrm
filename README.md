@@ -1,4 +1,4 @@
-com.groupwho.paperlesstrans
+com.paperlesstrans.civicrm
 ===============
 CiviCRM Extension for Paperless Transaction Corporation Payment Processor 
 

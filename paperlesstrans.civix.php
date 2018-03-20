@@ -8,7 +8,7 @@
  */
 class CRM_Paperlesstrans_ExtensionUtil {
   const SHORT_NAME = "paperlesstrans";
-  const LONG_NAME = "com.groupwho.paperlesstrans";
+  const LONG_NAME = "com.paperlesstrans.civicrm";
   const CLASS_PREFIX = "CRM_Paperlesstrans";
 
   /**

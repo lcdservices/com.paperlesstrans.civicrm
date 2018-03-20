@@ -6,4 +6,10 @@
     <title>PaperlessForm</title>
     <access_arguments>access CiviCRM</access_arguments>
   </item>
+  <item>
+    <path>civicrm/admin/contribute/paperlesssettings</path>
+    <page_callback>CRM_Paperlesstrans_Form_PaperlessSettings</page_callback>
+    <title>Paperless Payments Settings</title>
+    <access_arguments>access CiviContribute,administer CiviCRM</access_arguments>
+  </item>
 </menu>

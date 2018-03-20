@@ -93,7 +93,7 @@ function paperlesstrans_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
  */
 function paperlesstrans_civicrm_managed(&$entities) {
   $entities[] = array(
-    'module' => 'com.groupwho.paperlesstrans',
+    'module' => 'com.paperlesstrans.civicrm',
     'name' => 'Paperless Transactions Credit Card',
     'entity' => 'PaymentProcessorType',
     'params' => array(
@@ -115,7 +115,7 @@ function paperlesstrans_civicrm_managed(&$entities) {
   );
 
   $entities[] = array(
-    'module' => 'com.groupwho.paperlesstrans',
+    'module' => 'com.paperlesstrans.civicrm',
     'name' => 'Paperless Transactions ACH/EFT',
     'entity' => 'PaymentProcessorType',
     'params' => array(
@@ -179,62 +179,147 @@ function paperlesstrans_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
 }
 
 /**
- * Functions below this ship commented out. Uncomment as required.
- *
+ * Implements hook_civicrm_validateForm().
+ */
+function paperlesstrans_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
+  if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
+    if (isset($fields['is_recur'])) {
+      foreach (array_keys($fields['payment_processor']) as $paymentProcessorID) {
+        $paymentProcessorTypeId = CRM_Core_DAO::getFieldValue(
+          'CRM_Financial_DAO_PaymentProcessor',
+          $paymentProcessorID,
+          'payment_processor_type_id'
+        );
+        $paymentProcessorType = CRM_Core_PseudoConstant::paymentProcessorType(FALSE, $paymentProcessorTypeId, 'name');
 
-/**
- * Implements hook_civicrm_preProcess().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_preProcess
- *
-function paperlesstrans_civicrm_preProcess($formName, &$form) {
-
-} // */
-
-  /**
-   * Implements hook_civicrm_validateForm().
-   */
-  function paperlesstrans_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
-    if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
-      if (isset($fields['is_recur'])) {
-        foreach (array_keys($fields['payment_processor']) as $paymentProcessorID) {
-          $paymentProcessorTypeId = CRM_Core_DAO::getFieldValue(
-            'CRM_Financial_DAO_PaymentProcessor',
-            $paymentProcessorID,
-            'payment_processor_type_id'
-          );
-          $paymentProcessorType = CRM_Core_PseudoConstant::paymentProcessorType(FALSE, $paymentProcessorTypeId, 'name');
-
-          // If it is Paperless processor.
-          if (strstr($paymentProcessorType, 'Paperless Transactions')) {
-            if (!empty($fields['is_recur_interval'])) {
-              $errors['is_recur_interval'] = ts('Paperless Transaction does not support the recurring intervals setting.');
-            }
-
-            if (!empty($fields['recur_frequency_unit']['day'])) {
-              $errors['recur_frequency_unit'] = ts('Paperless Transaction does not support *day* as a recurring frequency.');
-            }
-
-            break;
+        // If it is Paperless processor.
+        if (strstr($paymentProcessorType, 'Paperless Transactions')) {
+          if (!empty($fields['is_recur_interval'])) {
+            $errors['is_recur_interval'] = ts('Paperless Transaction does not support the recurring intervals setting.');
           }
+
+          if (!empty($fields['recur_frequency_unit']['day'])) {
+            $errors['recur_frequency_unit'] = ts('Paperless Transaction does not support *day* as a recurring frequency.');
+          }
+
+          break;
         }
       }
     }
   }
+}
+
+function paperlesstrans_civicrm_buildForm($formName, &$form) {
+  /*Civi::log()->debug('', array(
+    'formName' => $formName,
+    'form' => $form,
+  ));*/
+
+  if ($formName == 'CRM_Contribute_Form_Contribution_Main' &&
+    _paperlesstrans_paperlessEnabled($form)
+  ) {
+    _paperlesstrans_buildForm_Contrib_front($form);
+  }
+}
+
+function paperlesstrans_civicrm_navigationMenu(&$params) {
+  $pages = array(
+    'settings_page' => array(
+      'label' => 'Paperless Payments Settings',
+      'name' => 'Paperless Payments Settings',
+      'url' => 'civicrm/admin/contribute/paperlesssettings',
+      'parent' => array('Administer', 'CiviContribute'),
+      'permission' => 'access CiviContribute,administer CiviCRM',
+      'operator' => 'AND',
+      'separator' => NULL,
+      'active' => 1,
+    ),
+  );
+  foreach ($pages as $item) {
+    // Check that our item doesn't already exist.
+    $menu_item_search = array('url' => $item['url']);
+    $menu_items = array();
+    CRM_Core_BAO_Navigation::retrieve($menu_item_search, $menu_items);
+    if (empty($menu_items)) {
+      $path = implode('/', $item['parent']);
+      unset($item['parent']);
+      _paperlesstrans_civix_insert_navigation_menu($params, $path, $item);
+    }
+  }
+}
+
+function _paperlesstrans_buildForm_Contrib_front(&$form) {
+  if (isset($form->_elementIndex['is_recur'])) {
+    $settings = CRM_Core_BAO_Setting::getItem('Paperless Payments Extension', 'paperless_settings');
+    //Civi::log()->debug('_paperlesstrans_buildForm_Contrib_front', array('settings' => $settings));
+
+    if (!empty($settings['enable_public_future_recurring_start'])) {
+      $allow_days = empty($settings['days']) ? array('-1') : $settings['days'];
+      $start_dates = _paperlesstrans_get_future_monthly_start_dates(time(), $allow_days);
+      $form->addElement('select', 'receive_date', ts('Date of first contribution'), $start_dates);
+
+      CRM_Core_Region::instance('billing-block')->add(array(
+        'template' => 'CRM/Paperlesstrans/BillingBlockRecurringExtra.tpl',
+      ));
+      CRM_Core_Resources::singleton()->addScriptFile('com.paperlesstrans.civicrm', 'js/recur_start.js', 10);
+    }
+  }
+}
 
 /**
- * Implements hook_civicrm_navigationMenu().
+ * @param $form
  *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_navigationMenu
+ * @return bool
  *
-function paperlesstrans_civicrm_navigationMenu(&$menu) {
-  _paperlesstrans_civix_insert_navigation_menu($menu, NULL, array(
-    'label' => ts('The Page', array('domain' => 'com.groupwho.paperlesstrans')),
-    'name' => 'the_page',
-    'url' => 'civicrm/the-page',
-    'permission' => 'access CiviReport,access CiviContribute',
-    'operator' => 'OR',
-    'separator' => 0,
-  ));
-  _paperlesstrans_civix_navigationMenu($menu);
-} // */
+ * helper to determine if the contrib page has a paperless processor enabled
+ */
+function _paperlesstrans_paperlessEnabled($form) {
+  foreach ($form->_paymentProcessors as $processor) {
+    if (in_array($processor['class_name'], array(
+        'Payment_PaperlessTransACH',
+        'Payment_PaperlessTransCC',
+      )) && $processor['is_active']
+    ) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Function _paperlesstrans_get_future_start_dates
+ *
+ * @param $start_date a timestamp, only return dates after this.
+ * @param $allow_days an array of allowable days of the month.
+ */
+function _paperlesstrans_get_future_monthly_start_dates($start_date, $allow_days) {
+  // Future date options.
+  $start_dates = array();
+  // special handling for today - it means immediately or now.
+  $today = date('Ymd').'030000';
+  // If not set, only allow for the first 28 days of the month.
+  if (max($allow_days) <= 0) {
+    $allow_days = range(1,28);
+  }
+  for ($j = 0; $j < count($allow_days); $j++) {
+    // So I don't get into an infinite loop somehow ..
+    $i = 0;
+    $dp = getdate($start_date);
+    while (($i++ < 60) && !in_array($dp['mday'], $allow_days)) {
+      $start_date += (24 * 60 * 60);
+      $dp = getdate($start_date);
+    }
+    $key = date('Ymd', $start_date).'030000';
+    if ($key == $today) { // special handling
+      $display = ts('Now');
+      $key = ''; // date('YmdHis');
+    }
+    else {
+      $display = strftime('%B %e, %Y', $start_date);
+    }
+    $start_dates[$key] = $display;
+    $start_date += (24 * 60 * 60);
+  }
+  return $start_dates;
+}
