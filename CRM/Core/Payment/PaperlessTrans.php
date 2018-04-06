@@ -118,14 +118,16 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
    *   - RefundCardTransaction (not yet implemented)
    *   - SettleCardAuthorization (not yet implemented)
    *
-   *
    * @param array $params
    *   The request parameters/arguments for the SOAP call.
    *
-   * @return [type]                   [description]
+   * @return [type][description]
    */
   public function _soapTransaction($transaction_type = '', $params = array()) {
-    // Don't want to assume anything here.  Must be passed.
+    $this->_ppDebug('_soapTransaction $transaction_type', $transaction_type);
+    $this->_ppDebug('_soapTransaction $params', $params);
+
+    // Don't want to assume anything here. Must be passed.
     if (empty($transaction_type)) {
       return self::error(2, 'No $transaction_type passed to _soapTransaction!');
     }
@@ -140,8 +142,9 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
     //$client = new SoapClient('https://svc.paperlesstrans.com:9999/?wsdl');
     // @TODO Does this get the right URL?
     $client = new SoapClient($this->_paymentProcessor['url_site']);
+    $this->_ppDebug('_soapTransaction $client', $client);
 
-    // Need to swap for __soapCall() since __call() is deprecated.
+    //TODO Need to swap for __soapCall() since __call() is deprecated.
     $run = $client->__call($transaction_type, array('parameters' => $params));
 
     // Get the property name of this transaction_type's result.
@@ -150,15 +153,12 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
     //$return['dateTimeStamp'] = $run->{$resultFunction}->DateTimeStamp;
     $return['ResponseCode'] = $run->{$resultFunction}->ResponseCode;
 
-    // @TODO Debugging - remove me.
-    //CRM_Core_Error::debug_var('Paperless SOAP resultFunction', $run->{$resultFunction});
-
     // Non-ResponseCode 0 from Paperless means there was an error.
     if ($run->{$resultFunction}->ResponseCode != 0) {
       return self::error($run->{$resultFunction}->ResponseCode, $run->{$resultFunction}->Message);
     }
 
-    // We should have a successful transaction.  Few more things to ensure.
+    // We should have a successful transaction. Few more things to ensure.
     $this->_setParam('trxn_id', $run->{$resultFunction}->TransactionID);
     $return['trxn_id'] = $run->{$resultFunction}->TransactionID;
 
@@ -198,6 +198,7 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       return self::error(9001, $run->{$resultFunction}->Message);
     }
 
+    $this->_ppDebug('_soapTransaction $return', $return);
     return $return;
   }
 
@@ -212,15 +213,15 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       'req' => array(
         'Token' => array(
           'TerminalID' => $this->_paymentProcessor['user_name'],
-          'TerminalKey' =>  $this->_paymentProcessor['password'],
+          'TerminalKey' => $this->_paymentProcessor['password'],
         ),
-        'TestMode'    =>  $this->_isTestString,
-        'Currency'    =>  $this->_getParam('currencyID'),
-        'Amount'      =>  $this->_getParam('amount'),
+        'TestMode' => $this->_isTestString,
+        'Currency' => $this->_getParam('currencyID'),
+        'Amount' => $this->_getParam('amount'),
         // These have to be configured in the gateway account as well.
-        'CustomFields'  => array(
-          'Field_1' =>  'InvoiceID: ' . $this->_getParam('invoiceID'),
-          'Field_2' =>  'IP Addr: ' . $this->_getParam('ip_address'),
+        'CustomFields' => array(
+          'Field_1' => 'InvoiceID: ' . $this->_getParam('invoiceID'),
+          'Field_2' => 'IP Addr: ' . $this->_getParam('ip_address'),
           /*'Field_3' =>  '',
           'Field_4' =>  '',
           'Field_5' =>  '',
@@ -249,6 +250,8 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
    * - '2'  => 'Bi-Annualy'
    * - '1'  => 'Annually'
    *
+   * frequency_interval option is disallowed
+   *
    * @param string $profile_number
    *   May not be used.  The ProfileNumber from PaperlessTrans.
    *
@@ -266,31 +269,26 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
 
     // Map CiviCRM's frequency name to Paperless's.
     if (empty($this->_frequencyMap[$frequency_unit])) {
-      $error_message = 'Could not determine recurring frequency.  Please try another setting.';
-      CRM_Core_Error::debug_log_message($error_message);
-      echo $error_message . '<p>';
+      $error_message = 'Could not determine recurring frequency. Please try another setting.';
+      $this->_ppDebug($error_message, $frequency_unit);
+
       return FALSE;
     }
     $frequency = $this->_frequencyMap[$frequency_unit];
 
-    // No longer required because we block installment setting.  Too many issues.
-    //$frequency = self::_determineFrequency();
-    /*if (!$frequency) {
-      $error_message = 'Could not determine recurring frequency.  Please try another setting.';
-      CRM_Core_Error::debug_log_message($error_message);
-      echo $error_message . '<p>';
-      return FALSE;
-    }*/
+    $startDate = (!empty($this->_getParam('receive_date'))) ?
+      date($this->_ptDateFormat, strtotime($this->_getParam('receive_date'))) :
+      date($this->_ptDateFormat);
 
     // Set up the soap call parameters for recurring.
     $params = array(
       'req' => array(
         // This is for updating existing subscriptions.
         //'ProfileNumber' =>  $profile_number,
-        'ListingName' =>  $full_name,
-        'Frequency'   =>  $frequency,
-        'StartDateTime' =>  date($this->_ptDateFormat),
-        'Memo'      =>  'CiviCRM recurring charge.',
+        'ListingName' => $full_name,
+        'Frequency' => $frequency,
+        'StartDateTime' => $startDate,
+        'Memo' => 'CiviCRM recurring charge.',
       ),
     );
 
@@ -299,9 +297,22 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       $installments = $this->_getParam('installments');
       // This is subtracted by 1 because CiviCRM reports status to the user as:
       // "X installments (including this initial contribution)".
-      $installments--;
-      $endTime = strtotime("+{$installments} {$frequency_unit}");
+
+      //TODO rethink this; if we expose future date w/o recur checkbox, should just set these values
+      if ($installments == 1) {
+        //if installments = 1, offset end date by a single week to avoid errors
+        $endTime = strtotime("+1 week", strtotime($startDate));
+
+        //also set Frequency to week (52)
+        $params['req']['Frequency'] = 52;
+      }
+      else {
+        $installments--;
+        $endTime = strtotime("+{$installments} {$frequency_unit}", strtotime($startDate));
+      }
+
       $endDate = date($this->_ptDateFormat, $endTime);
+
       // Now set the soap call parameter.
       $params['req']['EndingDateTime'] = $endDate;
     }
@@ -439,6 +450,23 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
   }
 
   /**
+   * @param $msg
+   * @param $var
+   * @param $force boolean
+   *
+   * wrapper for CiviCRM debugging to:
+   *
+   * 1. only log to file if system debug is enabled
+   * 2. log to separate log file with paperless prefix
+   * 3. allow forced logging (log even when debugging is disabled)
+   */
+  function _ppDebug($msg, $var, $force = FALSE) {
+    if (Civi::settings()->get('debug_enabled') || $force) {
+      CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE, 'paperless');
+    }
+  }
+
+  /**
    * @param null $errorCode
    * @param null $errorMessage
    *
@@ -475,10 +503,13 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
    *   The result in a nice formatted array (or an error object).
    */
   public function doDirectPayment(&$params) {
+    $this->_ppDebug('doDirectPayment $params', $params);
+    $this->_ppDebug('doDirectPayment $this', $this);
+
     if ($this->_getParam('currencyID') != 'USD') {
       $error_message = 'Only USD is supported in PaperlessTrans.';
-      echo $error_message . '<p>';
-      CRM_Core_Error::debug_log_message($error_message);
+      $this->_ppDebug($error_message, $this->_getParam('currencyID'));
+
       return self::error(2, $error_message);
     }
 
@@ -487,32 +518,39 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
 
     // Recurring payments.
     if (!empty($params['is_recur']) && !empty($params['contributionRecurID'])) {
-      // Transaction type.
       $transaction_type = $this->_transactionTypeRecur;
-
-      $result = $this->doRecurPayment();
+      $this->doRecurPayment();
     }
 
     // @TODO Debugging - remove me.
-    //CRM_Core_Error::debug_var('this reqParams in DDP', $this->_reqParams);
+    //$this->_ppDebug('this reqParams in DDP', $this->_reqParams);
 
     // Run the SOAP transaction.
     $result = self::_soapTransaction($transaction_type, $this->_reqParams);
 
     // Handle errors.
     if (is_a($result, 'CRM_Core_Error')) {
-      $error_message = 'There was an error with the transaction.  Please check logs: ';
-      echo $error_message . '<p>';
-      CRM_Core_Error::debug_log_message($error_message);
+      $error_message = 'There was an error with the transaction. Please check logs: ';
+      $this->_ppDebug($error_message, $result);
+
       return $result;
     }
 
     if (!empty($result['trxn_id'])) {
       $params['trxn_id'] = $result['trxn_id'];
       // Set contribution status to success.
-      $params['contribution_status_id'] = 1;
-      // Payment success for CiviCRM versions >= 4.6.6.
-      $params['payment_status_id'] = 1;
+
+      $contributionStatus = CRM_Contribute_PseudoConstant::contributionStatus(NULL, 'name');
+
+      if (empty($params['receive_date'])) {
+        $params['contribution_status_id'] = array_search('Completed', $contributionStatus);
+        $params['payment_status_id'] = array_search('Completed', $contributionStatus);
+      }
+      else {
+        //future date selected
+        $params['contribution_status_id'] = array_search('In Progress', $contributionStatus);
+        $params['payment_status_id'] = array_search('In Progress', $contributionStatus);
+      }
 
       // Recurring contributions.
       if (!empty($params['is_recur']) && !empty($params['contributionRecurID'])) {
@@ -531,8 +569,7 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       }
     }
 
-    //CRM_Core_Error::debug_var('ALL params in doDirect:', $params);
-
+    $this->_ppDebug('ALL params in doDirect:', $params);
     return $params;
   }
 

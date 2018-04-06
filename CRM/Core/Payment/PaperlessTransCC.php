@@ -86,19 +86,19 @@ class CRM_Core_Payment_PaperlessTransCC extends CRM_Core_Payment_PaperlessTrans 
 
     $params = array(
       'req' => array(
-        'CardPresent' =>  'False',
-        'Card'        => array(
+        'CardPresent' => 'False',
+        'Card' => array(
           'CardNumber'  => $this->_getParam('credit_card_number'),
           'ExpirationMonth' => $this->_getParam('month'),
           'ExpirationYear'=> $this->_getParam('year'),
           'SecurityCode'  => $this->_getParam('cvv2'),
           'NameOnAccount' => $full_name,
-          'Address'   => array(
-            'Street'  =>  $this->_getParam('street_address'),
-            'City'    =>  $this->_getParam('city'),
-            'State'   =>  $state_code,
-            'Zip'     =>  $this->_getParam('postal_code'),
-            'Country' =>  $country_code,
+          'Address' => array(
+            'Street' => $this->_getParam('street_address'),
+            'City' => $this->_getParam('city'),
+            'State' => $state_code,
+            'Zip' => $this->_getParam('postal_code'),
+            'Country' => $country_code,
           ),
           /*'Identification'=> array(
             'IDType'  =>  '1',
@@ -127,9 +127,7 @@ class CRM_Core_Payment_PaperlessTransCC extends CRM_Core_Payment_PaperlessTrans 
   }
 
   public function _createCCProfile() {
-
   }
-
 
  /**
    * Submit a payment.
@@ -141,6 +139,8 @@ class CRM_Core_Payment_PaperlessTransCC extends CRM_Core_Payment_PaperlessTrans 
    *   The result in a nice formatted array (or an error object).
    */
   public function doDirectPayment(&$params) {
+    $this->_ppDebug('doDirectPayment CC $params', $params);
+
     // Set params in our own storage.
     foreach ($params as $field => $value) {
       $this->_setParam($field, $value);
@@ -197,9 +197,9 @@ class CRM_Core_Payment_PaperlessTransCC extends CRM_Core_Payment_PaperlessTrans 
 
     // Handle errors.
     if (is_a($result, 'CRM_Core_Error')) {
-      $error_message = 'There was an error with the transaction.  Please check logs: ';
-      echo $error_message . '<p>';
-      CRM_Core_Error::debug_log_message($error_message);
+      $error_message = 'There was an error with the transaction. Please check logs: ';
+      $this->_ppDebug($error_message, $result);
+
       return $result;
     }
 
