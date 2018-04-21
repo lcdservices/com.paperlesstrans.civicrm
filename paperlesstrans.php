@@ -249,20 +249,19 @@ function paperlesstrans_civicrm_navigationMenu(&$params) {
 }
 
 function _paperlesstrans_buildForm_Contrib_front(&$form) {
-  if (isset($form->_elementIndex['is_recur'])) {
-    $settings = CRM_Core_BAO_Setting::getItem('Paperless Payments Extension', 'paperless_settings');
-    //Civi::log()->debug('_paperlesstrans_buildForm_Contrib_front', array('settings' => $settings));
+  $settings = CRM_Core_BAO_Setting::getItem('Paperless Payments Extension', 'paperless_settings');
+  _paperless_debug('_paperlesstrans_buildForm_Contrib_front $settings', $settings);
 
-    if (!empty($settings['enable_public_future_recurring_start'])) {
-      $allow_days = empty($settings['days']) ? array('-1') : $settings['days'];
-      $start_dates = _paperlesstrans_get_future_monthly_start_dates(time(), $allow_days);
-      $form->addElement('select', 'receive_date', ts('Date of first contribution'), $start_dates);
 
-      CRM_Core_Region::instance('billing-block')->add(array(
-        'template' => 'CRM/Paperlesstrans/BillingBlockRecurringExtra.tpl',
-      ));
-      CRM_Core_Resources::singleton()->addScriptFile('com.paperlesstrans.civicrm', 'js/recur_start.js', 10);
-    }
+  if (!empty($settings['enable_public_future_start'])) {
+    $allow_days = empty($settings['days']) ? array('-1') : $settings['days'];
+    $start_dates = _paperlesstrans_get_future_monthly_start_dates(time(), $allow_days);
+    $form->addElement('select', 'receive_date', ts('Contribution Transaction Date'), $start_dates);
+
+    CRM_Core_Region::instance('billing-block')->add(array(
+      'template' => 'CRM/Paperlesstrans/BillingBlockFutureStart.tpl',
+    ));
+    CRM_Core_Resources::singleton()->addScriptFile('com.paperlesstrans.civicrm', 'js/transaction_start.js', 10);
   }
 }
 
@@ -322,4 +321,21 @@ function _paperlesstrans_get_future_monthly_start_dates($start_date, $allow_days
     $start_date += (24 * 60 * 60);
   }
   return $start_dates;
+}
+
+/**
+ * @param $msg
+ * @param $var
+ * @param $force boolean
+ *
+ * wrapper for CiviCRM debugging to:
+ *
+ * 1. only log to file if system debug is enabled
+ * 2. log to separate log file with paperless prefix
+ * 3. allow forced logging (log even when debugging is disabled)
+ */
+function _paperless_debug($msg, $var, $force = FALSE) {
+  if (Civi::settings()->get('debug_enabled') || $force) {
+    CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE, 'paperless');
+  }
 }

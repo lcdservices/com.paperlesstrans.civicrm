@@ -10,8 +10,8 @@ class CRM_Paperlesstrans_Form_PaperlessSettings extends CRM_Core_Form {
   public function buildQuickForm() {
     $this->add(
       'checkbox',
-      'enable_public_future_recurring_start',
-      ts('Enable public selection of future recurring start dates.')
+      'enable_public_future_start',
+      ts('Enable public selection of future start dates.')
     );
 
     $days = array('-1' => 'disabled');
