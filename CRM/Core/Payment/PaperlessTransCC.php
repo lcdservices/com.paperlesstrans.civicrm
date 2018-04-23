@@ -139,7 +139,7 @@ class CRM_Core_Payment_PaperlessTransCC extends CRM_Core_Payment_PaperlessTrans 
    *   The result in a nice formatted array (or an error object).
    */
   public function doDirectPayment(&$params) {
-    $this->_ppDebug('doDirectPayment CC $params', $params);
+    //$this->_ppDebug('doDirectPayment CC $params', $params);
 
     // Set params in our own storage.
     foreach ($params as $field => $value) {

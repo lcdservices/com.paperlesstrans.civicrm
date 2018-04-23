@@ -210,15 +210,29 @@ function paperlesstrans_civicrm_validateForm($formName, &$fields, &$files, &$for
 }
 
 function paperlesstrans_civicrm_buildForm($formName, &$form) {
-  /*Civi::log()->debug('', array(
-    'formName' => $formName,
-    'form' => $form,
-  ));*/
-
   if ($formName == 'CRM_Contribute_Form_Contribution_Main' &&
     _paperlesstrans_paperlessEnabled($form)
   ) {
     _paperlesstrans_buildForm_Contrib_front($form);
+  }
+
+  if ($formName == 'CRM_Contribute_Form_Contribution_Confirm') {
+    //_paperless_debug('paperlesstrans_civicrm_buildForm confirm $form', $form);
+  }
+}
+
+function paperlesstrans_civicrm_postProcess($formName, &$form) {
+  if (($formName == 'CRM_Contribute_Form_Contribution_Main') &&
+    _paperlesstrans_paperlessEnabled($form)
+  ) {
+    //_paperless_debug('paperlesstrans_civicrm_postProcess $form', $form);
+    $session = CRM_Core_Session::singleton();
+    if (!empty($form->_submitValues['future_receive_date'])) {
+      $session->set("future_receive_date_{$form->_submitValues['qfKey']}", $form->_submitValues['future_receive_date']);
+    }
+    else {
+      $session->set("future_receive_date_{$form->_submitValues['qfKey']}", NULL);
+    }
   }
 }
 
@@ -250,18 +264,17 @@ function paperlesstrans_civicrm_navigationMenu(&$params) {
 
 function _paperlesstrans_buildForm_Contrib_front(&$form) {
   $settings = CRM_Core_BAO_Setting::getItem('Paperless Payments Extension', 'paperless_settings');
-  _paperless_debug('_paperlesstrans_buildForm_Contrib_front $settings', $settings);
+  //_paperless_debug('_paperlesstrans_buildForm_Contrib_front $settings', $settings);
 
 
   if (!empty($settings['enable_public_future_start'])) {
     $allow_days = empty($settings['days']) ? array('-1') : $settings['days'];
     $start_dates = _paperlesstrans_get_future_monthly_start_dates(time(), $allow_days);
-    $form->addElement('select', 'receive_date', ts('Contribution Transaction Date'), $start_dates);
+    $form->add('select', 'future_receive_date', ts('Contribution Transaction Date'), $start_dates);
 
-    CRM_Core_Region::instance('billing-block')->add(array(
+    CRM_Core_Region::instance('price-set-1')->add(array(
       'template' => 'CRM/Paperlesstrans/BillingBlockFutureStart.tpl',
     ));
-    CRM_Core_Resources::singleton()->addScriptFile('com.paperlesstrans.civicrm', 'js/transaction_start.js', 10);
   }
 }
 
@@ -289,8 +302,8 @@ function _paperlesstrans_paperlessEnabled($form) {
 /**
  * Function _paperlesstrans_get_future_start_dates
  *
- * @param $start_date a timestamp, only return dates after this.
- * @param $allow_days an array of allowable days of the month.
+ * @string $start_date a timestamp, only return dates after this.
+ * @array $allow_days an array of allowable days of the month.
  */
 function _paperlesstrans_get_future_monthly_start_dates($start_date, $allow_days) {
   // Future date options.
