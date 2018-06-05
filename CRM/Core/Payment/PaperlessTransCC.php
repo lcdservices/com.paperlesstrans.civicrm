@@ -85,37 +85,52 @@ class CRM_Core_Payment_PaperlessTransCC extends CRM_Core_Payment_PaperlessTrans 
     }
 
     $params = array(
-      'req' => array(
-        'CardPresent' => 'False',
-        'Card' => array(
-          'CardNumber'  => $this->_getParam('credit_card_number'),
-          'ExpirationMonth' => $this->_getParam('month'),
-          'ExpirationYear'=> $this->_getParam('year'),
-          'SecurityCode'  => $this->_getParam('cvv2'),
-          'NameOnAccount' => $full_name,
-          'Address' => array(
-            'Street' => $this->_getParam('street_address'),
-            'City' => $this->_getParam('city'),
-            'State' => $state_code,
-            'Zip' => $this->_getParam('postal_code'),
-            'Country' => $country_code,
+      'source' => array(
+        'card' => array(
+          'accountNumber'  => $this->_getParam('credit_card_number'),
+          'expiration'     => $this->_getParam('month') . '/' . $this->_getParam('year'),
+          'securityCode'   => $this->_getParam('cvv2'),
+          'nameOnAccount'  => $full_name,
+          'billingAddress' => array(
+            'street'  => $this->_getParam('street_address'),
+            'city'    => $this->_getParam('city'),
+            'state'   => $state_code,
+            'postal'  => $this->_getParam('postal_code'),
+            'country' => $country_code,
           ),
-          /*'Identification'=> array(
-            'IDType'  =>  '1',
-            'State'   =>  'TX',
-            'Number'  =>  '12345678',
-            'Expiration'=>  '12/31/2012',
-            'DOB'   =>  '12/31/1956',
-            'Address' => array(
-              'Street'  =>  '1234 Main Street',
-              'City'    =>  'Anytown',
-              'State'   =>  'TX',
-              'Zip'   =>  '99999',
-              'Country' =>  'US',
-            ),
-          ),*/
         ),
       ),
+      //'req' => array(
+      //  'CardPresent' => 'False',
+      //  'Card' => array(
+      //    'CardNumber'  => $this->_getParam('credit_card_number'),
+      //    'ExpirationMonth' => $this->_getParam('month'),
+      //    'ExpirationYear'=> $this->_getParam('year'),
+      //    'SecurityCode'  => $this->_getParam('cvv2'),
+      //    'NameOnAccount' => $full_name,
+      //    'Address' => array(
+      //      'Street' => $this->_getParam('street_address'),
+      //      'City' => $this->_getParam('city'),
+      //      'State' => $state_code,
+      //      'Zip' => $this->_getParam('postal_code'),
+      //      'Country' => $country_code,
+      //    ),
+      //    /*'Identification'=> array(
+      //      'IDType'  =>  '1',
+      //      'State'   =>  'TX',
+      //      'Number'  =>  '12345678',
+      //      'Expiration'=>  '12/31/2012',
+      //      'DOB'   =>  '12/31/1956',
+      //      'Address' => array(
+      //        'Street'  =>  '1234 Main Street',
+      //        'City'    =>  'Anytown',
+      //        'State'   =>  'TX',
+      //        'Zip'   =>  '99999',
+      //        'Country' =>  'US',
+      //      ),
+      //    ),*/
+      //  ),
+      //),
     );
 
     // Add the ProfileNumber to update existing subscription.

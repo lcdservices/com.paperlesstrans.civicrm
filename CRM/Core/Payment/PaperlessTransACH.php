@@ -131,36 +131,50 @@ class CRM_Core_Payment_PaperlessTransACH extends CRM_Core_Payment_PaperlessTrans
     }
 
     $params = array(
-      'req' => array(
-        // No longer required.
-        //'CheckNumber' =>     $this->_getParam('bank_check_number'),
-        'Check'        => array(
-          'RoutingNumber' => $this->_getParam('bank_identification_number'),
-          'AccountNumber' => $this->_getParam('bank_account_number'),
-          'NameOnAccount' => $this->_getParam('account_holder'),
-          'Address'   => array(
-            'Street'  =>  $this->_getParam('street_address'),
-            'City'    =>  $this->_getParam('city'),
-            'State'   =>  $state_code,
-            'Zip'     =>  $this->_getParam('postal_code'),
-            'Country' =>  $country_code,
+      'source' => array(
+        'ach' => array(
+          'nameOnAccount'  => $this->_getParam('account_holder'),
+          'routingNumber'  => $this->_getParam('bank_identification_number'),
+          'accountNumber'  => $this->_getParam('bank_account_number'),
+          'billingAddress' => array(
+            'street'  => $this->_getParam('street_address'),
+            'city'    => $this->_getParam('city'),
+            'state'   => $state_code,
+            'postal'  => $this->_getParam('postal_code'),
+            'country' => $country_code,
           ),
-          /*'Identification'=> array(
-            'IDType'  =>  '1',
-            'State'   =>  'TX',
-            'Number'  =>  '12345678',
-            'Expiration'=>  '12/31/2012',
-            'DOB'   =>  '12/31/1956',
-            'Address' => array(
-              'Street'  =>  '1234 Main Street',
-              'City'    =>  'Anytown',
-              'State'   =>  'TX',
-              'Zip'   =>  '99999',
-              'Country' =>  'US',
-            ),
-          ),*/
         ),
       ),
+      //'req' => array(
+      //  // No longer required.
+      //  //'CheckNumber' =>     $this->_getParam('bank_check_number'),
+      //  'Check'        => array(
+      //    'RoutingNumber' => $this->_getParam('bank_identification_number'),
+      //    'AccountNumber' => $this->_getParam('bank_account_number'),
+      //    'NameOnAccount' => $this->_getParam('account_holder'),
+      //    'Address'   => array(
+      //      'Street'  =>  $this->_getParam('street_address'),
+      //      'City'    =>  $this->_getParam('city'),
+      //      'State'   =>  $state_code,
+      //      'Zip'     =>  $this->_getParam('postal_code'),
+      //      'Country' =>  $country_code,
+      //    ),
+      //    /*'Identification'=> array(
+      //      'IDType'  =>  '1',
+      //      'State'   =>  'TX',
+      //      'Number'  =>  '12345678',
+      //      'Expiration'=>  '12/31/2012',
+      //      'DOB'   =>  '12/31/1956',
+      //      'Address' => array(
+      //        'Street'  =>  '1234 Main Street',
+      //        'City'    =>  'Anytown',
+      //        'State'   =>  'TX',
+      //        'Zip'   =>  '99999',
+      //        'Country' =>  'US',
+      //      ),
+      //    ),*/
+      //  ),
+      //),
     );
 
     return $params;

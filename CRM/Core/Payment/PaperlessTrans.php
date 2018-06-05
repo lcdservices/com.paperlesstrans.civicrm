@@ -13,7 +13,7 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
   protected $_transactionType = NULL;
   protected $_transactionTypeRecur = NULL;
 
-  public $_ppDebugLevel = 1;
+  public $_ppDebugLevel = 5;
 
   /**
    * We only need one instance of this object. So we use the singleton
@@ -125,13 +125,92 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
    *
    * @return [type][description]
    */
-  public function _soapTransaction($transaction_type = '', $params = array()) {
-    $this->_ppDebug('_soapTransaction $transaction_type', $transaction_type);
-    $this->_ppDebug('_soapTransaction $params', $params);
+  //public function _soapTransaction($transaction_type = '', $params = array()) {
+  //  $this->_ppDebug('_soapTransaction $transaction_type', $transaction_type);
+  //  $this->_ppDebug('_soapTransaction $params', $params);
+
+  //  // Don't want to assume anything here. Must be passed.
+  //  if (empty($transaction_type)) {
+  //    return self::error(2, 'No $transaction_type passed to _soapTransaction!');
+  //  }
+
+  //  // Passing $params to this function may be useful later.
+  //  if (empty($params)) {
+  //    $params = $this->_reqParams;
+  //  }
+
+  //  $return = array();
+
+  //  $client = new SoapClient($this->_paymentProcessor['url_site']);
+  //  $this->_ppDebug('_soapTransaction _paymentProcessor[url_site]', $this->_paymentProcessor['url_site'], FALSE, 3);
+  //  $this->_ppDebug('_soapTransaction $client', $client, FALSE, 3);
+
+  //  //TODO Need to swap for __soapCall() since __call() is deprecated.
+  //  $run = $client->__call($transaction_type, array('parameters' => $params));
+
+  //  // Get the property name of this transaction_type's result.
+  //  $resultFunction = $this->_resultFunctionsMap[$transaction_type];
+  //  $this->_ppDebug('_soapTransaction $resultFunction', $resultFunction);
+
+  //  //$return['dateTimeStamp'] = $run->{$resultFunction}->DateTimeStamp;
+  //  $return['ResponseCode'] = $run->{$resultFunction}->ResponseCode;
+
+  //  // Non-ResponseCode 0 from Paperless means there was an error.
+  //  if ($return['ResponseCode'] != 0) {
+  //    return self::error($run->{$resultFunction}->ResponseCode, $run->{$resultFunction}->Message);
+  //  }
+
+  //  // We should have a successful transaction. Few more things to ensure.
+  //  $return['trxn_id'] = $run->{$resultFunction}->TransactionID;
+  //  $this->_setParam('trxn_id', $return['trxn_id']);
+
+  //  // Different propertyName for Card vs ACH vs Recur processing.
+  //  // Determine approval per transaction type.
+  //  $approval = 'False';
+  //  switch ($transaction_type) {
+  //    // Credit Card transaction.
+  //    case 'processCard':
+  //      $approval = $run->{$resultFunction}->IsApproved;
+  //      break;
+
+  //    // ACH/EBT transaction.
+  //    case 'ProcessACH':
+  //      $approval = $run->{$resultFunction}->IsAccepted;
+  //      break;
+
+  //    // Others.
+  //    default:
+  //      // Create profile or setup recurring billing subscription.
+  //      if (strstr($transaction_type, 'Setup') || strstr($transaction_type, 'Create')) {
+  //        if (!empty($run->{$resultFunction}->ProfileNumber)) {
+  //          $this->_setParam('pt_profile_number', $run->{$resultFunction}->ProfileNumber);
+  //          $approval = 'True';
+  //        }
+  //      }
+
+  //      // Update existing schedules.
+  //      if (strstr($transaction_type, 'Update')) {
+  //        $approval = 'True';
+  //      }
+  //      break;
+  //  }
+
+  //  // Transaction was declined, or failed for other reason.
+  //  if ($approval == 'False') {
+  //    return self::error(9001, $run->{$resultFunction}->Message);
+  //  }
+
+  //  $this->_ppDebug('_soapTransaction $return', $return, FALSE, 2);
+  //  return $return;
+  //}
+
+  public function _restTransaction($transaction_type = '', $params = array()) {
+    $this->_ppDebug('_restTransaction $transaction_type', $transaction_type);
+    $this->_ppDebug('_restTransaction $params', $params);
 
     // Don't want to assume anything here. Must be passed.
     if (empty($transaction_type)) {
-      return self::error(2, 'No $transaction_type passed to _soapTransaction!');
+      return self::error(2, 'No $transaction_type passed to _restTransaction!');
     }
 
     // Passing $params to this function may be useful later.
@@ -139,106 +218,148 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       $params = $this->_reqParams;
     }
 
-    $return = array();
-
-    $client = new SoapClient($this->_paymentProcessor['url_site']);
-    $this->_ppDebug('_soapTransaction _paymentProcessor[url_site]', $this->_paymentProcessor['url_site'], FALSE, 3);
-    $this->_ppDebug('_soapTransaction $client', $client, FALSE, 3);
-
-    //TODO Need to swap for __soapCall() since __call() is deprecated.
-    $run = $client->__call($transaction_type, array('parameters' => $params));
-
-    // Get the property name of this transaction_type's result.
-    $resultFunction = $this->_resultFunctionsMap[$transaction_type];
-    $this->_ppDebug('_soapTransaction $resultFunction', $resultFunction);
-
-    //$return['dateTimeStamp'] = $run->{$resultFunction}->DateTimeStamp;
-    $return['ResponseCode'] = $run->{$resultFunction}->ResponseCode;
-
-    // Non-ResponseCode 0 from Paperless means there was an error.
-    if ($return['ResponseCode'] != 0) {
-      return self::error($run->{$resultFunction}->ResponseCode, $run->{$resultFunction}->Message);
+    $return = $this->_callRestTransaction($params);
+    if (is_a($return, 'CRM_Core_Error')) {
+      $error_message = 'There was an error with the transaction. Please check logs: ';
+      $this->_ppDebug($error_message, $return);
+      return $return;
     }
 
-    // We should have a successful transaction. Few more things to ensure.
-    $return['trxn_id'] = $run->{$resultFunction}->TransactionID;
+    if($return['isApproved'] == "true") {
+      $return['trxn_id'] = $return['transaction']['authorizationNumber'] . '-' . $return['referenceId'];
+    } else {
+      // Transaction was declined, or failed for other reason.
+      $error_message = 'There was an error with the transaction. Please check logs: ';
+      $this->_ppDebug($error_message, $return);
+      return self::error(9001, $return['message']);
+    }
     $this->_setParam('trxn_id', $return['trxn_id']);
 
     // Different propertyName for Card vs ACH vs Recur processing.
     // Determine approval per transaction type.
-    $approval = 'False';
-    switch ($transaction_type) {
-      // Credit Card transaction.
-      case 'processCard':
-        $approval = $run->{$resultFunction}->IsApproved;
-        break;
+    // FIXME: check if we need approval sec, because exception would be caught
+    // anyway with rest calls.
+    //$approval = 'False';
+    //switch ($transaction_type) {
+    //  // Credit Card transaction.
+    //  case 'processCard':
+    //    $return = $this->_callRestTransaction($params);
+    //    $this->_setParam('trxn_id', $return['trxn_id']);
+    //    $approval = $return['IsApproved'];
+    //    break;
 
-      // ACH/EBT transaction.
-      case 'ProcessACH':
-        $approval = $run->{$resultFunction}->IsAccepted;
-        break;
+    //  // ACH/EBT transaction.
+    //  case 'ProcessACH':
+    //    $return = $this->_callRestTransaction($params);
+    //    $this->_setParam('trxn_id', $return['trxn_id']);
+    //    $approval = $return['IsAccepted'];
+    //    break;
 
-      // Others.
-      default:
-        // Create profile or setup recurring billing subscription.
-        if (strstr($transaction_type, 'Setup') || strstr($transaction_type, 'Create')) {
-          if (!empty($run->{$resultFunction}->ProfileNumber)) {
-            $this->_setParam('pt_profile_number', $run->{$resultFunction}->ProfileNumber);
-            $approval = 'True';
-          }
-        }
+    //  // Others.
+    //  default:
+    //    // Create profile or setup recurring billing subscription.
+    //    if (strstr($transaction_type, 'Setup') || strstr($transaction_type, 'Create')) {
+    //      if (!empty($run->{$resultFunction}->ProfileNumber)) {
+    //        //$this->_setParam('pt_profile_number', $run->{$resultFunction}->ProfileNumber);
+    //        $this->_setParam('pt_profile_number', $return['ProfileNumber']);
+    //        $approval = 'True';
+    //      }
+    //    }
 
-        // Update existing schedules.
-        if (strstr($transaction_type, 'Update')) {
-          $approval = 'True';
-        }
-        break;
-    }
+    //    // Update existing schedules.
+    //    if (strstr($transaction_type, 'Update')) {
+    //      $approval = 'True';
+    //    }
+    //    break;
+    //}
 
     // Transaction was declined, or failed for other reason.
-    if ($approval == 'False') {
-      return self::error(9001, $run->{$resultFunction}->Message);
-    }
+    // FIXME: check if we need approval sec, because exception would be caught
+    //if ($approval == 'False') {
+    //  return self::error(9001, $run->{$resultFunction}->Message);
+    //}
 
-    $this->_ppDebug('_soapTransaction $return', $return, FALSE, 2);
+    $this->_ppDebug('_restTransaction $return', $return, FALSE, 2);
     return $return;
   }
+
+  public function _callRestTransaction($params = array()) {
+    CRM_Core_Error::debug_var('ach $params', $params);
+    $response    = array();
+    $postProfile = array('source' => $params['source']);
+    $rest = new CRM_Paperlesstrans_REST();
+    try {
+      $response = $rest->createProfile($postProfile);
+    } catch (Exception $e) {
+      return self::error(9001, $e->getMessage());
+    }
+
+    if(!empty($response['profile'])) {
+      $postData = array(
+        'amount' => $params['amount'],
+        'source' => array(
+          'profileNumber' => $response['profile']['profileNumber']
+        )
+      );
+      try {
+        $response = $rest->captureTransaction($postData);
+      } catch (Exception $e) {
+        return self::error(9001, $e->getMessage());
+      }
+    }
+    return $response;
+  }
+
+  ///**
+  // * Build the default array to send to PaperlessTrans.
+  // *
+  // * @return array
+  // *   The scaffolding for the SOAP transaction parameters.
+  // */
+  //public function _buildRequestDefaults() {
+  //  $defaults = array(
+  //    'req' => array(
+  //      'Token' => array(
+  //        'TerminalID' => $this->_paymentProcessor['user_name'],
+  //        'TerminalKey' => $this->_paymentProcessor['password'],
+  //      ),
+  //      'TestMode' => $this->_isTestString,
+  //      'Currency' => $this->_getParam('currencyID'),
+  //      'Amount' => $this->_getParam('amount'),
+  //      // These have to be configured in the gateway account as well.
+  //      'CustomFields' => array(
+  //        'Field_1' => 'InvoiceID: ' . $this->_getParam('invoiceID'),
+  //        'Field_2' => 'IP Addr: ' . $this->_getParam('ip_address'),
+  //        /*'Field_3' =>  '',
+  //        'Field_4' =>  '',
+  //        'Field_5' =>  '',
+  //        'Field_6' =>  '',
+  //        'Field_7' =>  '',
+  //        'Field_8' =>  '',
+  //        'Field_9' =>  '',
+  //        'Field_10'  =>  '',*/
+  //      ),
+  //    ),
+  //  );
+
+  //  return $defaults;
+  //}
 
   /**
    * Build the default array to send to PaperlessTrans.
    *
    * @return array
-   *   The scaffolding for the SOAP transaction parameters.
+   *   The scaffolding for the REST transaction parameters.
    */
   public function _buildRequestDefaults() {
     $defaults = array(
-      'req' => array(
-        'Token' => array(
-          'TerminalID' => $this->_paymentProcessor['user_name'],
-          'TerminalKey' => $this->_paymentProcessor['password'],
-        ),
-        'TestMode' => $this->_isTestString,
-        'Currency' => $this->_getParam('currencyID'),
-        'Amount' => $this->_getParam('amount'),
-        // These have to be configured in the gateway account as well.
-        'CustomFields' => array(
-          'Field_1' => 'InvoiceID: ' . $this->_getParam('invoiceID'),
-          'Field_2' => 'IP Addr: ' . $this->_getParam('ip_address'),
-          /*'Field_3' =>  '',
-          'Field_4' =>  '',
-          'Field_5' =>  '',
-          'Field_6' =>  '',
-          'Field_7' =>  '',
-          'Field_8' =>  '',
-          'Field_9' =>  '',
-          'Field_10'  =>  '',*/
-        ),
+      'amount' => array(
+        'value'    => $this->_getParam('amount'),
+        'currency' => $this->_getParam('currencyID'),
       ),
     );
-
     return $defaults;
   }
-
 
   /**
    * Prepare the fields for recurring subscription requests.
@@ -466,7 +587,8 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
   function _ppDebug($msg, $var, $force = FALSE, $level = 1) {
     if (Civi::settings()->get('debug_enabled') || $force) {
       if ($this->_ppDebugLevel >= $level) {
-        CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE, 'paperless');
+        //CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE, 'paperless');
+        CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE);
       }
     }
   }
@@ -560,10 +682,11 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
     }
 
     // @TODO Debugging - remove me.
-    //$this->_ppDebug('this reqParams in DDP', $this->_reqParams);
+    $this->_ppDebug('this reqParams in DDP', $this->_reqParams);
 
     // Run the SOAP transaction.
-    $result = self::_soapTransaction($transaction_type, $this->_reqParams);
+    //$result = self::_soapTransaction($transaction_type, $this->_reqParams);
+    $result = self::_restTransaction($transaction_type, $this->_reqParams);
     $this->_ppDebug('doDirectPayment $result', $result, FALSE, 2);
 
     // Handle errors.
