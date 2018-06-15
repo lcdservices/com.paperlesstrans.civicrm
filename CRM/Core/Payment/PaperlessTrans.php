@@ -11,7 +11,6 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
   protected $_isTestString = 'False';
   protected $_ptDateFormat = 'm/d/Y';
   protected $_transactionType = NULL;
-  protected $_transactionTypeRecur = NULL;
 
   public $_ppDebugLevel = 5;
 
@@ -224,16 +223,14 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       $this->_ppDebug($error_message, $return);
       return $return;
     }
-
-    if($return['isApproved'] == "true") {
-      $return['trxn_id'] = $return['transaction']['authorizationNumber'] . '-' . $return['referenceId'];
-    } else {
-      // Transaction was declined, or failed for other reason.
-      $error_message = 'There was an error with the transaction. Please check logs: ';
-      $this->_ppDebug($error_message, $return);
-      return self::error(9001, $return['message']);
-    }
     $this->_setParam('trxn_id', $return['trxn_id']);
+
+    // Create profile or setup recurring billing subscription.
+    //if (strstr($transaction_type, 'Setup') || strstr($transaction_type, 'Create')) {
+
+    if (!empty($return['profile_number'])) {
+      $this->_setParam('pt_profile_number', $return['profile_number']);
+    }
 
     // Different propertyName for Card vs ACH vs Recur processing.
     // Determine approval per transaction type.
@@ -284,30 +281,40 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
   }
 
   public function _callRestTransaction($params = array()) {
-    CRM_Core_Error::debug_var('ach $params', $params);
-    $response    = array();
+    CRM_Core_Error::debug_var('restTrxn $params', $params);
+    $result = array();
     $postProfile = array('source' => $params['source']);
     $rest = new CRM_Paperlesstrans_REST();
     try {
-      $response = $rest->createProfile($postProfile);
+      $result = $rest->createProfile($postProfile);
     } catch (Exception $e) {
       return self::error(9001, $e->getMessage());
     }
-
-    if(!empty($response['profile'])) {
+    if(!empty($result['profile'])) {
+      $profile  = $result['profile']['profileNumber'];
       $postData = array(
         'amount' => $params['amount'],
         'source' => array(
-          'profileNumber' => $response['profile']['profileNumber']
+          'profileNumber' => $profile
         )
       );
       try {
-        $response = $rest->captureTransaction($postData);
+        $result = $rest->captureTransaction($postData);
       } catch (Exception $e) {
         return self::error(9001, $e->getMessage());
       }
     }
-    return $response;
+    if($result['isApproved'] == "true") {
+      $result['trxn_id'] = $result['transaction']['authorizationNumber'] . '-' . $result['referenceId'];
+      $result['profile_number'] = $profile;
+    } else {
+      // Transaction was declined, or failed for other reason.
+      $error_message = 'There was an error with the transaction. Please check logs: ';
+      $this->_ppDebug($error_message, $result);
+      return self::error(9001, $result['message']);
+    }
+    CRM_Core_Error::debug_var('restTxn $result', $result);
+    return $result;
   }
 
   ///**
@@ -361,87 +368,87 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
     return $defaults;
   }
 
-  /**
-   * Prepare the fields for recurring subscription requests.
-   *
-   * Paperless's frequency map:
-   * - '52' => 'Weekly'
-   * - '26' => 'Semi-Weekly'
-   * - '24' => 'Bi-Monthly'
-   * - '12' => 'Monthly'
-   * - '4'  => 'Quarterl'
-   * - '2'  => 'Bi-Annualy'
-   * - '1'  => 'Annually'
-   *
-   * frequency_interval option is disallowed
-   *
-   * @param string $profile_number
-   *   May not be used.  The ProfileNumber from PaperlessTrans.
-   *
-   * @return array
-   *   The array of additional SOAP request params.
-   */
-  public function _processRecurFields($profile_number = '') {
-    $full_name = $this->_getParam('billing_first_name') . ' ' . $this->_getParam('billing_last_name');
+  ///**
+  // * Prepare the fields for recurring subscription requests.
+  // *
+  // * Paperless's frequency map:
+  // * - '52' => 'Weekly'
+  // * - '26' => 'Semi-Weekly'
+  // * - '24' => 'Bi-Monthly'
+  // * - '12' => 'Monthly'
+  // * - '4'  => 'Quarterl'
+  // * - '2'  => 'Bi-Annualy'
+  // * - '1'  => 'Annually'
+  // *
+  // * frequency_interval option is disallowed
+  // *
+  // * @param string $profile_number
+  // *   May not be used.  The ProfileNumber from PaperlessTrans.
+  // *
+  // * @return array
+  // *   The array of additional SOAP request params.
+  // */
+  //public function _processRecurFields($profile_number = '') {
+  //  $full_name = $this->_getParam('billing_first_name') . ' ' . $this->_getParam('billing_last_name');
 
-    // Example: I chose once every 2 months for 10 months:
-    // [frequency_interval] => 2
-    // [frequency_unit] => month
-    // [installments] => 10
-    $frequency_unit = $this->_getParam('frequency_unit');
+  //  // Example: I chose once every 2 months for 10 months:
+  //  // [frequency_interval] => 2
+  //  // [frequency_unit] => month
+  //  // [installments] => 10
+  //  $frequency_unit = $this->_getParam('frequency_unit');
 
-    // Map CiviCRM's frequency name to Paperless's.
-    if (empty($this->_frequencyMap[$frequency_unit])) {
-      $error_message = 'Could not determine recurring frequency. Please try another setting.';
-      $this->_ppDebug($error_message, $frequency_unit);
+  //  // Map CiviCRM's frequency name to Paperless's.
+  //  if (empty($this->_frequencyMap[$frequency_unit])) {
+  //    $error_message = 'Could not determine recurring frequency. Please try another setting.';
+  //    $this->_ppDebug($error_message, $frequency_unit);
 
-      return FALSE;
-    }
-    $frequency = $this->_frequencyMap[$frequency_unit];
+  //    return FALSE;
+  //  }
+  //  $frequency = $this->_frequencyMap[$frequency_unit];
 
-    $startDate = (!empty($this->_getParam('future_receive_date'))) ?
-      date($this->_ptDateFormat, strtotime($this->_getParam('future_receive_date'))) :
-      date($this->_ptDateFormat);
+  //  $startDate = (!empty($this->_getParam('future_receive_date'))) ?
+  //    date($this->_ptDateFormat, strtotime($this->_getParam('future_receive_date'))) :
+  //    date($this->_ptDateFormat);
 
-    // Set up the soap call parameters for recurring.
-    $params = array(
-      'req' => array(
-        // This is for updating existing subscriptions.
-        //'ProfileNumber' =>  $profile_number,
-        'ListingName' => $full_name,
-        'Frequency' => $frequency,
-        'StartDateTime' => $startDate,
-        'Memo' => 'CiviCRM recurring charge.',
-      ),
-    );
+  //  // Set up the soap call parameters for recurring.
+  //  $params = array(
+  //    'req' => array(
+  //      // This is for updating existing subscriptions.
+  //      //'ProfileNumber' =>  $profile_number,
+  //      'ListingName' => $full_name,
+  //      'Frequency' => $frequency,
+  //      'StartDateTime' => $startDate,
+  //      'Memo' => 'CiviCRM recurring charge.',
+  //    ),
+  //  );
 
-    // If they set a limit to the number of installments (end date).
-    if (!empty($this->_getParam('installments'))) {
-      $installments = $this->_getParam('installments');
+  //  // If they set a limit to the number of installments (end date).
+  //  if (!empty($this->_getParam('installments'))) {
+  //    $installments = $this->_getParam('installments');
 
-      //TODO rethink this; if we expose future date w/o recur checkbox, should just set these values
-      if ($installments == 1) {
-        //if installments = 1, offset end date by a single week to avoid errors
-        $endTime = strtotime("+1 week", strtotime($startDate));
+  //    //TODO rethink this; if we expose future date w/o recur checkbox, should just set these values
+  //    if ($installments == 1) {
+  //      //if installments = 1, offset end date by a single week to avoid errors
+  //      $endTime = strtotime("+1 week", strtotime($startDate));
 
-        //also set Frequency to week (52)
-        $params['req']['Frequency'] = 52;
-      }
-      else {
-        // This is subtracted by 1 because CiviCRM reports status to the user as:
-        // "X installments (including this initial contribution)".
-        $installments--;
-        $endTime = strtotime("+{$installments} {$frequency_unit}", strtotime($startDate));
-      }
+  //      //also set Frequency to week (52)
+  //      $params['req']['Frequency'] = 52;
+  //    }
+  //    else {
+  //      // This is subtracted by 1 because CiviCRM reports status to the user as:
+  //      // "X installments (including this initial contribution)".
+  //      $installments--;
+  //      $endTime = strtotime("+{$installments} {$frequency_unit}", strtotime($startDate));
+  //    }
 
-      $endDate = date($this->_ptDateFormat, $endTime);
+  //    $endDate = date($this->_ptDateFormat, $endTime);
 
-      // Now set the soap call parameter.
-      $params['req']['EndingDateTime'] = $endDate;
-    }
+  //    // Now set the soap call parameter.
+  //    $params['req']['EndingDateTime'] = $endDate;
+  //  }
 
-    return $params;
-  }
+  //  return $params;
+  //}
 
   /**
    * Prepare the fields for recurring subscription update requests.
@@ -673,13 +680,13 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       $this->_setParam('contributionRecurID', $params['contributionRecurID']);
     }
 
-    // Recurring payments or one-time future
-    if ((!empty($params['is_recur']) && !empty($params['contributionRecurID'])) ||
-      $oneTimeFuture
-    ) {
-      $transaction_type = $this->_transactionTypeRecur;
-      $this->doRecurPayment();
-    }
+    //// Recurring payments or one-time future
+    //if ((!empty($params['is_recur']) && !empty($params['contributionRecurID'])) ||
+    //  $oneTimeFuture
+    //) {
+    //  //$transaction_type = $this->_transactionTypeRecur;
+    //  //$this->doRecurPayment();
+    //}
 
     // @TODO Debugging - remove me.
     $this->_ppDebug('this reqParams in DDP', $this->_reqParams);
@@ -717,9 +724,12 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       if ((!empty($params['is_recur']) && !empty($params['contributionRecurID'])) ||
         $oneTimeFuture
       ) {
+        if (empty($this->_getParam('pt_profile_number'))) {
+          return self::error(2, 'Expected profile number missing. Something wrong.');
+        }
         $this->_ppDebug('store profilenumbers $params', $params, FALSE, 2);
 
-        $is_ach = $this->_transactionTypeRecur == 'SetupACHSchedule' ? 1 : 0;
+        $is_ach = $this->_transactionType == 'ProcessACH' ? 1 : 0;
         $query_params = array(
           1 => array($this->_getParam('pt_profile_number'), 'String'),
           2 => array($_SERVER['REMOTE_ADDR'], 'String'),
@@ -740,22 +750,24 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
     return $params;
   }
 
-  /**
-   * Create a recurring billing subscription.
-   */
-  public function doRecurPayment() {
-    // Create a Credit Card Customer Profile.
-    //$profile_number = $this->_createCCProfile();
+  ///**
+  // * Create a recurring billing subscription.
+  // */
+  //public function doRecurPayment() {
+  //  // Create a Credit Card Customer Profile.
+  //  //$profile_number = $this->_createCCProfile();
 
-    // @TODO Create Profile, then get ProfileNumber.
-    // A profile is created with scheduled payments.  Do we need to look up and
-    // match for new schedules created by the same person/profile?
-    $recurParams = self::_processRecurFields();
+  //  // @TODO Create Profile, then get ProfileNumber.
+  //  // A profile is created with scheduled payments.  Do we need to look up and
+  //  // match for new schedules created by the same person/profile?
+  //  $recurParams = self::_processRecurFields();
+  //  CRM_Core_Error::debug_var('$recurParams', $recurParams);
 
-    // Merge the defaults with current processParams.
-    $currentParams = $this->_reqParams;
-    $this->_reqParams = array_merge_recursive($currentParams, $recurParams);
-  }
+  //  // Merge the defaults with current processParams.
+  //  $currentParams = $this->_reqParams;
+  //  CRM_Core_Error::debug_var('$currentParams', $currentParams);
+  //  $this->_reqParams = array_merge_recursive($currentParams, $recurParams);
+  //}
 
 
   /**

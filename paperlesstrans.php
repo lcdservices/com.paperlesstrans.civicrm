@@ -178,36 +178,36 @@ function paperlesstrans_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
   _paperlesstrans_civix_civicrm_alterSettingsFolders($metaDataFolders);
 }
 
-/**
- * Implements hook_civicrm_validateForm().
- */
-function paperlesstrans_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
-  if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
-    if (isset($fields['is_recur'])) {
-      foreach (array_keys($fields['payment_processor']) as $paymentProcessorID) {
-        $paymentProcessorTypeId = CRM_Core_DAO::getFieldValue(
-          'CRM_Financial_DAO_PaymentProcessor',
-          $paymentProcessorID,
-          'payment_processor_type_id'
-        );
-        $paymentProcessorType = CRM_Core_PseudoConstant::paymentProcessorType(FALSE, $paymentProcessorTypeId, 'name');
-
-        // If it is Paperless processor.
-        if (strstr($paymentProcessorType, 'Paperless Transactions')) {
-          if (!empty($fields['is_recur_interval'])) {
-            $errors['is_recur_interval'] = ts('Paperless Transaction does not support the recurring intervals setting.');
-          }
-
-          if (!empty($fields['recur_frequency_unit']['day'])) {
-            $errors['recur_frequency_unit'] = ts('Paperless Transaction does not support *day* as a recurring frequency.');
-          }
-
-          break;
-        }
-      }
-    }
-  }
-}
+///**
+// * Implements hook_civicrm_validateForm().
+// */
+//function paperlesstrans_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
+//  if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
+//    if (isset($fields['is_recur'])) {
+//      foreach (array_keys($fields['payment_processor']) as $paymentProcessorID) {
+//        $paymentProcessorTypeId = CRM_Core_DAO::getFieldValue(
+//          'CRM_Financial_DAO_PaymentProcessor',
+//          $paymentProcessorID,
+//          'payment_processor_type_id'
+//        );
+//        $paymentProcessorType = CRM_Core_PseudoConstant::paymentProcessorType(FALSE, $paymentProcessorTypeId, 'name');
+//
+//        // If it is Paperless processor.
+//        if (strstr($paymentProcessorType, 'Paperless Transactions')) {
+//          if (!empty($fields['is_recur_interval'])) {
+//            $errors['is_recur_interval'] = ts('Paperless Transaction does not support the recurring intervals setting.');
+//          }
+//
+//          if (!empty($fields['recur_frequency_unit']['day'])) {
+//            $errors['recur_frequency_unit'] = ts('Paperless Transaction does not support *day* as a recurring frequency.');
+//          }
+//
+//          break;
+//        }
+//      }
+//    }
+//  }
+//}
 
 function paperlesstrans_civicrm_buildForm($formName, &$form) {
   if ($formName == 'CRM_Contribute_Form_Contribution_Main' &&

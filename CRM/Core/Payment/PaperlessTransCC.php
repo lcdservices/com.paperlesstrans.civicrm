@@ -31,9 +31,8 @@ class CRM_Core_Payment_PaperlessTransCC extends CRM_Core_Payment_PaperlessTrans 
     $this->_resultFunctionsMap = self::_mapResultFunctions();
     $this->_frequencyMap = self::_mapFrequency();
 
-    // Set transaction type for Soap call.
+    // Set transaction type
     $this->_transactionType = 'processCard';
-    $this->_transactionTypeRecur = 'SetupCardSchedule';
 
     // Get merchant data from config.
     $config = CRM_Core_Config::singleton();

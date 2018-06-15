@@ -30,9 +30,8 @@ class CRM_Core_Payment_PaperlessTransACH extends CRM_Core_Payment_PaperlessTrans
     // Array of the result function names by Soap request function name.
     $this->_resultFunctionsMap = self::_mapResultFunctions();
     $this->_frequencyMap = self::_mapFrequency();
-    // Set transaction type for Soap call.
+    // Set transaction type
     $this->_transactionType = 'ProcessACH';
-    $this->_transactionTypeRecur = 'SetupACHSchedule';
 
     // Get merchant data from config.
     $config = CRM_Core_Config::singleton();
