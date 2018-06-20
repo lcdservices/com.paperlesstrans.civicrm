@@ -146,8 +146,8 @@ function civicrm_api3_paperless_processrecur($params) {
   return civicrm_api3_create_success(array('count' => $count), $params, 'Paperless', 'Processrecur');
 }
 
-function _ppDebug($msg, $var, $force = FALSE) {
-  if (Civi::settings()->get('debug_enabled') || $force) {
-    CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE, 'paperless');
-  }
-}
+//function _ppDebug($msg, $var, $force = FALSE) {
+//  if (Civi::settings()->get('debug_enabled') || $force) {
+//    CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE, 'paperless');
+//  }
+//}
