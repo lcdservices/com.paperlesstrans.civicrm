@@ -203,9 +203,10 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
   //  return $return;
   //}
 
+  //FIXME: there is no need for this method
   public function _restTransaction($transaction_type = '', $params = array()) {
     $this->_ppDebug('_restTransaction $transaction_type', $transaction_type);
-    $this->_ppDebug('_restTransaction $params', $params);
+    $this->_ppDebug('_restTransaction $this->_reqParams', $this->_reqParams);
 
     // Don't want to assume anything here. Must be passed.
     if (empty($transaction_type)) {
@@ -213,9 +214,9 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
     }
 
     // Passing $params to this function may be useful later.
-    if (empty($params)) {
-      $params = $this->_reqParams;
-    }
+    //if (empty($params)) {
+    //  $params = $this->_reqParams;
+    //}
 
     $return = $this->_callRestTransaction($params);
     if (is_a($return, 'CRM_Core_Error')) {
@@ -281,9 +282,9 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
   }
 
   public function _callRestTransaction($params = array()) {
-    CRM_Core_Error::debug_var('restTrxn $params', $params);
+    CRM_Core_Error::debug_var('restTrxn $this->_reqParams', $this->_reqParams);
     $result = array();
-    $postProfile = array('source' => $params['source']);
+    $postProfile = array('source' => $this->_reqParams['source']);
     $rest = new CRM_Paperlesstrans_REST();
     try {
       $result = $rest->createProfile($postProfile);
@@ -292,28 +293,33 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
     }
     if(!empty($result['profile'])) {
       $profile  = $result['profile']['profileNumber'];
-      $postData = array(
-        'amount' => $params['amount'],
-        'source' => array(
-          'profileNumber' => $profile
-        )
-      );
-      try {
-        $result = $rest->captureTransaction($postData);
-      } catch (Exception $e) {
-        return self::error(9001, $e->getMessage());
+      $result['profile_number'] = $profile;
+
+      // if not a future trxn, fire immediate trxn
+      if (empty($params['future_receive_date'])) {
+        $postData = array(
+          'amount' => $this->_reqParams['amount'],
+          'source' => array(
+            'profileNumber' => $profile
+          )
+        );
+        try {
+          $result = $rest->captureTransaction($postData);
+        } catch (Exception $e) {
+          return self::error(9001, $e->getMessage());
+        }
+        if($result['isApproved'] == "true") {
+          $result['trxn_id'] = $result['transaction']['authorizationNumber'] . '-' . $result['referenceId'];
+          $result['profile_number'] = $profile;
+        } else {
+          // Transaction was declined, or failed for other reason.
+          $error_message = 'There was an error with the transaction. Please check logs: ';
+          $this->_ppDebug($error_message, $result);
+          return self::error(9001, $result['message']);
+        }
       }
     }
-    if($result['isApproved'] == "true") {
-      $result['trxn_id'] = $result['transaction']['authorizationNumber'] . '-' . $result['referenceId'];
-      $result['profile_number'] = $profile;
-    } else {
-      // Transaction was declined, or failed for other reason.
-      $error_message = 'There was an error with the transaction. Please check logs: ';
-      $this->_ppDebug($error_message, $result);
-      return self::error(9001, $result['message']);
-    }
-    CRM_Core_Error::debug_var('restTxn $result', $result);
+    CRM_Core_Error::debug_var('rest profile or trxn $result', $result);
     return $result;
   }
 
@@ -640,6 +646,7 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
    * recurring with a future date
    */
   public function doDirectPayment(&$params) {
+    CRM_Core_Error::backtrace('backtrace', true);
     $this->_ppDebug('doDirectPayment $params', $params);
     $this->_ppDebug('doDirectPayment $this', $this);
     $this->_ppDebug('doDirectPayment $_REQUEST', $_REQUEST, FALSE, 3);
@@ -688,12 +695,9 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
     //  //$this->doRecurPayment();
     //}
 
-    // @TODO Debugging - remove me.
-    $this->_ppDebug('this reqParams in DDP', $this->_reqParams);
-
     // Run the SOAP transaction.
     //$result = self::_soapTransaction($transaction_type, $this->_reqParams);
-    $result = self::_restTransaction($transaction_type, $this->_reqParams);
+    $result = $this->_restTransaction($transaction_type, $params);
     $this->_ppDebug('doDirectPayment $result', $result, FALSE, 2);
 
     // Handle errors.
@@ -704,46 +708,48 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       return $result;
     }
 
+    $contributionStatus = CRM_Contribute_PseudoConstant::contributionStatus(NULL, 'name');
     if (!empty($result['trxn_id'])) {
       $params['trxn_id'] = $result['trxn_id'];
       // Set contribution status to success.
+      $params['contribution_status_id'] = array_search('Completed', $contributionStatus);
+      $params['payment_status_id'] = array_search('Completed', $contributionStatus);
+    } else if (!empty($params['future_receive_date'])) {
+      // future date selected
+      // Set contribution status to pending.
+      $params['contribution_status_id'] = array_search('Pending', $contributionStatus);
+      $params['payment_status_id'] = array_search('Pending', $contributionStatus);
 
-      $contributionStatus = CRM_Contribute_PseudoConstant::contributionStatus(NULL, 'name');
+      // modify other params as core civi doesn't update them when payment is pending
+      // e.g: receive_date, contribution_recur_id
+      CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_Contribution', $params['contributionID'], 'receive_date', $params['future_receive_date']);
+      if ($oneTimeFuture) {
+        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_Contribution', $params['contributionID'], 'contribution_recur_id', $params['contributionRecurID']);
+      } // Else if its recur && future, civi will take care of attaching recur_id
+    } else {
+      return self::error(2, 'Neither Trxn nor Future date is present. Something wrong.');
+    }
 
-      if (empty($params['future_receive_date'])) {
-        $params['contribution_status_id'] = array_search('Completed', $contributionStatus);
-        $params['payment_status_id'] = array_search('Completed', $contributionStatus);
-      }
-      else {
-        //future date selected
-        $params['contribution_status_id'] = array_search('Pending', $contributionStatus);
-        $params['payment_status_id'] = array_search('Pending', $contributionStatus);
-      }
+    // Store paperless profile
+    if (!empty($params['contributionRecurID']) && !empty($this->_getParam('pt_profile_number'))) {
+      $this->_ppDebug('store profilenumbers $params', $params, FALSE, 2);
 
-      // Recurring contributions.
-      if ((!empty($params['is_recur']) && !empty($params['contributionRecurID'])) ||
-        $oneTimeFuture
-      ) {
-        if (empty($this->_getParam('pt_profile_number'))) {
-          return self::error(2, 'Expected profile number missing. Something wrong.');
-        }
-        $this->_ppDebug('store profilenumbers $params', $params, FALSE, 2);
+      $is_ach = $this->_transactionType == 'ProcessACH' ? 1 : 0;
+      $query_params = array(
+        1 => array($this->_getParam('pt_profile_number'), 'String'),
+        2 => array($_SERVER['REMOTE_ADDR'], 'String'),
+        3 => array($is_ach, 'Integer'),
+        4 => array($params['contactID'], 'Integer'),
+        5 => array($this->_getParam('email'), 'String'),
+        6 => array($params['contributionRecurID'], 'Integer'),
+      );
+      $this->_ppDebug('store profilenumbers $query_params', $query_params, FALSE, 2);
 
-        $is_ach = $this->_transactionType == 'ProcessACH' ? 1 : 0;
-        $query_params = array(
-          1 => array($this->_getParam('pt_profile_number'), 'String'),
-          2 => array($_SERVER['REMOTE_ADDR'], 'String'),
-          3 => array($is_ach, 'Integer'),
-          4 => array($params['contactID'], 'Integer'),
-          5 => array($this->_getParam('email'), 'String'),
-          6 => array($params['contributionRecurID'], 'Integer'),
-        );
-        $this->_ppDebug('store profilenumbers $query_params', $query_params, FALSE, 2);
-
-        CRM_Core_DAO::executeQuery("INSERT INTO civicrm_paperlesstrans_profilenumbers
-          (profile_number, ip, is_ach, cid, email, recur_id)
-          VALUES (%1, %2, %3, %4, %5, %6)", $query_params);
-      }
+      CRM_Core_DAO::executeQuery("INSERT INTO civicrm_paperlesstrans_profilenumbers
+        (profile_number, ip, is_ach, cid, email, recur_id)
+        VALUES (%1, %2, %3, %4, %5, %6)", $query_params);
+    } else {
+      return self::error(2, 'Expected profile number or recur ID missing. Something wrong.');
     }
 
     $this->_ppDebug('doDirectPayment final $params', $params, FALSE, 2);
