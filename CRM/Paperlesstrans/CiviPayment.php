@@ -96,4 +96,28 @@ class CRM_Paperlesstrans_CiviPayment {
     $this->paymentCount = CRM_Core_DAO::singleValueQuery($query, array(1 => array($this->recur->id, 'Positive')));
     return $this->paymentCount;
   }
+
+  public function getPendingPaymentId() {
+    // fixme: status generalize
+    $query = "
+      SELECT c.id
+      FROM   civicrm_contribution c
+      JOIN   civicrm_contribution_recur r on c.contribution_recur_id = r.id
+      WHERE  r.id = %1 AND c.contribution_status_id = 2
+      ORDER BY c.receive_date DESC
+      LIMIT 1";
+    return CRM_Core_DAO::singleValueQuery($query, array(1 => array($this->recur->id, 'Positive')));
+  }
+
+  function addOrdinalNumberSuffix($num) {
+    if (!in_array(($num % 100),array(11,12,13))){
+      switch ($num % 10) {
+        // Handle 1st, 2nd, 3rd
+        case 1:  return $num.'st';
+        case 2:  return $num.'nd';
+        case 3:  return $num.'rd';
+      }
+    }
+    return $num.'th';
+  }
 }

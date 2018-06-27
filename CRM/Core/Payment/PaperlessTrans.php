@@ -224,7 +224,9 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       $this->_ppDebug($error_message, $return);
       return $return;
     }
-    $this->_setParam('trxn_id', $return['trxn_id']);
+    if (!empty($return['trxn_id'])) {
+      $this->_setParam('trxn_id', $return['trxn_id']);
+    }
 
     // Create profile or setup recurring billing subscription.
     //if (strstr($transaction_type, 'Setup') || strstr($transaction_type, 'Create')) {
@@ -724,8 +726,14 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       // e.g: receive_date, contribution_recur_id
       CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_Contribution', $params['contributionID'], 'receive_date', $params['future_receive_date']);
       if ($oneTimeFuture) {
+        // recurr won't get attached to contribution, due to pending status.
+        // let's do it now.
         CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_Contribution', $params['contributionID'], 'contribution_recur_id', $params['contributionRecurID']);
-      } // Else if its recur && future, civi will take care of attaching recur_id
+      } else if ($params['is_recur']) {
+        // Recurring and future
+        // Recurring was created by core, we need to make sure start-date is set to future.
+        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur', $params['contributionRecurID'], 'start_date', $params['future_receive_date']);
+      }
     } else {
       return self::error(2, 'Neither Trxn nor Future date is present. Something wrong.');
     }
