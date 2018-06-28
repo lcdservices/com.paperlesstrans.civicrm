@@ -505,7 +505,6 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       //Note: since we override receive_date in buildForm hook, any initial
       //contribution or recur will have receive-date or start-date set
       //correctly. Otherwise we 'll have to set the dates at this point.
-      }
     } else {
       return self::error(2, 'Neither Trxn nor Future date is present. Something wrong.');
     }
