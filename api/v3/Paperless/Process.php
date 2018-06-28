@@ -125,6 +125,7 @@ function civicrm_api3_paperless_Process($params) {
 
 function _paperless_process_ppDebug($msg, $var, $force = FALSE) {
   if (Civi::settings()->get('debug_enabled') || $force) {
-    CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE, 'paperless');
+    //CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE, 'paperless');
+    CRM_Core_Error::debug_var($msg, $var);
   }
 }

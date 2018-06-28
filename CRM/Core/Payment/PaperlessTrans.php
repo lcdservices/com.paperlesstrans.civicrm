@@ -106,104 +106,6 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
     }
   }
 
-  /**
-   * Submit the SOAP transaction.
-   *
-   * @param  String $transaction_type
-   *   The type of transaction to push, options are:
-   *   - CreateACHProfile
-   *   - CreateCardProfile
-   *   - ProcessACH
-   *   - AuthorizeCard
-   *   - processCard
-   *   - RefundCardTransaction (not yet implemented)
-   *   - SettleCardAuthorization (not yet implemented)
-   *
-   * @param array $params
-   *   The request parameters/arguments for the SOAP call.
-   *
-   * @return [type][description]
-   */
-  //public function _soapTransaction($transaction_type = '', $params = array()) {
-  //  $this->_ppDebug('_soapTransaction $transaction_type', $transaction_type);
-  //  $this->_ppDebug('_soapTransaction $params', $params);
-
-  //  // Don't want to assume anything here. Must be passed.
-  //  if (empty($transaction_type)) {
-  //    return self::error(2, 'No $transaction_type passed to _soapTransaction!');
-  //  }
-
-  //  // Passing $params to this function may be useful later.
-  //  if (empty($params)) {
-  //    $params = $this->_reqParams;
-  //  }
-
-  //  $return = array();
-
-  //  $client = new SoapClient($this->_paymentProcessor['url_site']);
-  //  $this->_ppDebug('_soapTransaction _paymentProcessor[url_site]', $this->_paymentProcessor['url_site'], FALSE, 3);
-  //  $this->_ppDebug('_soapTransaction $client', $client, FALSE, 3);
-
-  //  //TODO Need to swap for __soapCall() since __call() is deprecated.
-  //  $run = $client->__call($transaction_type, array('parameters' => $params));
-
-  //  // Get the property name of this transaction_type's result.
-  //  $resultFunction = $this->_resultFunctionsMap[$transaction_type];
-  //  $this->_ppDebug('_soapTransaction $resultFunction', $resultFunction);
-
-  //  //$return['dateTimeStamp'] = $run->{$resultFunction}->DateTimeStamp;
-  //  $return['ResponseCode'] = $run->{$resultFunction}->ResponseCode;
-
-  //  // Non-ResponseCode 0 from Paperless means there was an error.
-  //  if ($return['ResponseCode'] != 0) {
-  //    return self::error($run->{$resultFunction}->ResponseCode, $run->{$resultFunction}->Message);
-  //  }
-
-  //  // We should have a successful transaction. Few more things to ensure.
-  //  $return['trxn_id'] = $run->{$resultFunction}->TransactionID;
-  //  $this->_setParam('trxn_id', $return['trxn_id']);
-
-  //  // Different propertyName for Card vs ACH vs Recur processing.
-  //  // Determine approval per transaction type.
-  //  $approval = 'False';
-  //  switch ($transaction_type) {
-  //    // Credit Card transaction.
-  //    case 'processCard':
-  //      $approval = $run->{$resultFunction}->IsApproved;
-  //      break;
-
-  //    // ACH/EBT transaction.
-  //    case 'ProcessACH':
-  //      $approval = $run->{$resultFunction}->IsAccepted;
-  //      break;
-
-  //    // Others.
-  //    default:
-  //      // Create profile or setup recurring billing subscription.
-  //      if (strstr($transaction_type, 'Setup') || strstr($transaction_type, 'Create')) {
-  //        if (!empty($run->{$resultFunction}->ProfileNumber)) {
-  //          $this->_setParam('pt_profile_number', $run->{$resultFunction}->ProfileNumber);
-  //          $approval = 'True';
-  //        }
-  //      }
-
-  //      // Update existing schedules.
-  //      if (strstr($transaction_type, 'Update')) {
-  //        $approval = 'True';
-  //      }
-  //      break;
-  //  }
-
-  //  // Transaction was declined, or failed for other reason.
-  //  if ($approval == 'False') {
-  //    return self::error(9001, $run->{$resultFunction}->Message);
-  //  }
-
-  //  $this->_ppDebug('_soapTransaction $return', $return, FALSE, 2);
-  //  return $return;
-  //}
-
-  //FIXME: there is no need for this method
   public function _restTransaction($transaction_type = '', $params = array()) {
     $this->_ppDebug('_restTransaction $transaction_type', $transaction_type);
     $this->_ppDebug('_restTransaction $this->_reqParams', $this->_reqParams);
@@ -213,82 +115,10 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       return self::error(2, 'No $transaction_type passed to _restTransaction!');
     }
 
-    // Passing $params to this function may be useful later.
-    //if (empty($params)) {
-    //  $params = $this->_reqParams;
-    //}
-
-    $return = $this->_callRestTransaction($params);
-    if (is_a($return, 'CRM_Core_Error')) {
-      $error_message = 'There was an error with the transaction. Please check logs: ';
-      $this->_ppDebug($error_message, $return);
-      return $return;
-    }
-    if (!empty($return['trxn_id'])) {
-      $this->_setParam('trxn_id', $return['trxn_id']);
-    }
-
-    // Create profile or setup recurring billing subscription.
-    //if (strstr($transaction_type, 'Setup') || strstr($transaction_type, 'Create')) {
-
-    if (!empty($return['profile_number'])) {
-      $this->_setParam('pt_profile_number', $return['profile_number']);
-    }
-
-    // Different propertyName for Card vs ACH vs Recur processing.
-    // Determine approval per transaction type.
-    // FIXME: check if we need approval sec, because exception would be caught
-    // anyway with rest calls.
-    //$approval = 'False';
-    //switch ($transaction_type) {
-    //  // Credit Card transaction.
-    //  case 'processCard':
-    //    $return = $this->_callRestTransaction($params);
-    //    $this->_setParam('trxn_id', $return['trxn_id']);
-    //    $approval = $return['IsApproved'];
-    //    break;
-
-    //  // ACH/EBT transaction.
-    //  case 'ProcessACH':
-    //    $return = $this->_callRestTransaction($params);
-    //    $this->_setParam('trxn_id', $return['trxn_id']);
-    //    $approval = $return['IsAccepted'];
-    //    break;
-
-    //  // Others.
-    //  default:
-    //    // Create profile or setup recurring billing subscription.
-    //    if (strstr($transaction_type, 'Setup') || strstr($transaction_type, 'Create')) {
-    //      if (!empty($run->{$resultFunction}->ProfileNumber)) {
-    //        //$this->_setParam('pt_profile_number', $run->{$resultFunction}->ProfileNumber);
-    //        $this->_setParam('pt_profile_number', $return['ProfileNumber']);
-    //        $approval = 'True';
-    //      }
-    //    }
-
-    //    // Update existing schedules.
-    //    if (strstr($transaction_type, 'Update')) {
-    //      $approval = 'True';
-    //    }
-    //    break;
-    //}
-
-    // Transaction was declined, or failed for other reason.
-    // FIXME: check if we need approval sec, because exception would be caught
-    //if ($approval == 'False') {
-    //  return self::error(9001, $run->{$resultFunction}->Message);
-    //}
-
-    $this->_ppDebug('_restTransaction $return', $return, FALSE, 2);
-    return $return;
-  }
-
-  public function _callRestTransaction($params = array()) {
-    CRM_Core_Error::debug_var('restTrxn $this->_reqParams', $this->_reqParams);
-    $result = array();
-    $postProfile = array('source' => $this->_reqParams['source']);
+    $this->_ppDebug('restTrxn $this->_reqParams', $this->_reqParams);
     $rest = new CRM_Paperlesstrans_REST();
     try {
+      $postProfile = array('source' => $this->_reqParams['source']);
       $result = $rest->createProfile($postProfile);
     } catch (Exception $e) {
       return self::error(9001, $e->getMessage());
@@ -321,44 +151,22 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
         }
       }
     }
-    CRM_Core_Error::debug_var('rest profile or trxn $result', $result);
+
+    //$result = $this->_callRestTransaction($params);
+    if (is_a($result, 'CRM_Core_Error')) {
+      $error_message = 'There was an error with the transaction. Please check logs: ';
+      $this->_ppDebug($error_message, $result);
+      return $result;
+    }
+    if (!empty($result['trxn_id'])) {
+      $this->_setParam('trxn_id', $result['trxn_id']);
+    }
+    if (!empty($result['profile_number'])) {
+      $this->_setParam('pt_profile_number', $result['profile_number']);
+    }
+    $this->_ppDebug('_restTransaction $result', $result, FALSE, 2);
     return $result;
   }
-
-  ///**
-  // * Build the default array to send to PaperlessTrans.
-  // *
-  // * @return array
-  // *   The scaffolding for the SOAP transaction parameters.
-  // */
-  //public function _buildRequestDefaults() {
-  //  $defaults = array(
-  //    'req' => array(
-  //      'Token' => array(
-  //        'TerminalID' => $this->_paymentProcessor['user_name'],
-  //        'TerminalKey' => $this->_paymentProcessor['password'],
-  //      ),
-  //      'TestMode' => $this->_isTestString,
-  //      'Currency' => $this->_getParam('currencyID'),
-  //      'Amount' => $this->_getParam('amount'),
-  //      // These have to be configured in the gateway account as well.
-  //      'CustomFields' => array(
-  //        'Field_1' => 'InvoiceID: ' . $this->_getParam('invoiceID'),
-  //        'Field_2' => 'IP Addr: ' . $this->_getParam('ip_address'),
-  //        /*'Field_3' =>  '',
-  //        'Field_4' =>  '',
-  //        'Field_5' =>  '',
-  //        'Field_6' =>  '',
-  //        'Field_7' =>  '',
-  //        'Field_8' =>  '',
-  //        'Field_9' =>  '',
-  //        'Field_10'  =>  '',*/
-  //      ),
-  //    ),
-  //  );
-
-  //  return $defaults;
-  //}
 
   /**
    * Build the default array to send to PaperlessTrans.
@@ -507,34 +315,6 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
 
     return $params;
   }
-
-  // No longer required because we block installment setting.  Too many issues.
-  /*public function _determineFrequency() {
-    $frequency = FALSE;
-    // I chose once every 2 months for 10 months:
-    // [frequency_interval] => 2
-    // [frequency_unit] => month
-    // [installments] => 10
-    $frequency_interval = $this->_getParam('frequency_interval');
-    $frequency_unit = $this->_getParam('frequency_unit');
-
-    // interval cannot be less than 7 days or more than 1 year
-    if ($frequency_unit == 'day') {
-      if ($frequency_interval < 7) {
-        return self::error(9001, 'Payment interval must be at least one week.  Daily units are not supported.');
-      }
-    }
-    elseif ($frequency_unit == 'month') {
-      if ($frequency_interval < 1) {
-        return self::error(9001, 'Payment interval must be at least one week.');
-      }
-      elseif ($frequency_interval > 12) {
-        return self::error(9001, 'Payment interval may not be longer than one year.');
-      }
-    }
-
-    return $frequency;
-  }*/
 
   /**
    * Map the transaction_type to the property name on the result.
@@ -722,17 +502,9 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       $params['contribution_status_id'] = array_search('Pending', $contributionStatus);
       $params['payment_status_id'] = array_search('Pending', $contributionStatus);
 
-      // modify other params as core civi doesn't update them when payment is pending
-      // e.g: receive_date, contribution_recur_id
-      CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_Contribution', $params['contributionID'], 'receive_date', $params['future_receive_date']);
-      if ($oneTimeFuture) {
-        // recurr won't get attached to contribution, due to pending status.
-        // let's do it now.
-        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_Contribution', $params['contributionID'], 'contribution_recur_id', $params['contributionRecurID']);
-      } else if ($params['is_recur']) {
-        // Recurring and future
-        // Recurring was created by core, we need to make sure start-date is set to future.
-        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_ContributionRecur', $params['contributionRecurID'], 'start_date', $params['future_receive_date']);
+      //Note: since we override receive_date in buildForm hook, any initial
+      //contribution or recur will have receive-date or start-date set
+      //correctly. Otherwise we 'll have to set the dates at this point.
       }
     } else {
       return self::error(2, 'Neither Trxn nor Future date is present. Something wrong.');
@@ -756,7 +528,8 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       CRM_Core_DAO::executeQuery("INSERT INTO civicrm_paperlesstrans_profilenumbers
         (profile_number, ip, is_ach, cid, email, recur_id)
         VALUES (%1, %2, %3, %4, %5, %6)", $query_params);
-    } else {
+    } else if (!empty($params['future_receive_date'])) {
+      // if its future, we should 've profile_number. Throw error otherwise
       return self::error(2, 'Expected profile number or recur ID missing. Something wrong.');
     }
 
@@ -775,11 +548,11 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
   //  // A profile is created with scheduled payments.  Do we need to look up and
   //  // match for new schedules created by the same person/profile?
   //  $recurParams = self::_processRecurFields();
-  //  CRM_Core_Error::debug_var('$recurParams', $recurParams);
+  //  $this->_ppDebug('$recurParams', $recurParams);
 
   //  // Merge the defaults with current processParams.
   //  $currentParams = $this->_reqParams;
-  //  CRM_Core_Error::debug_var('$currentParams', $currentParams);
+  //  $this->_ppDebug('$currentParams', $currentParams);
   //  $this->_reqParams = array_merge_recursive($currentParams, $recurParams);
   //}
 

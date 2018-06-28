@@ -178,37 +178,6 @@ function paperlesstrans_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
   _paperlesstrans_civix_civicrm_alterSettingsFolders($metaDataFolders);
 }
 
-///**
-// * Implements hook_civicrm_validateForm().
-// */
-//function paperlesstrans_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
-//  if ($formName == 'CRM_Contribute_Form_ContributionPage_Amount') {
-//    if (isset($fields['is_recur'])) {
-//      foreach (array_keys($fields['payment_processor']) as $paymentProcessorID) {
-//        $paymentProcessorTypeId = CRM_Core_DAO::getFieldValue(
-//          'CRM_Financial_DAO_PaymentProcessor',
-//          $paymentProcessorID,
-//          'payment_processor_type_id'
-//        );
-//        $paymentProcessorType = CRM_Core_PseudoConstant::paymentProcessorType(FALSE, $paymentProcessorTypeId, 'name');
-//
-//        // If it is Paperless processor.
-//        if (strstr($paymentProcessorType, 'Paperless Transactions')) {
-//          if (!empty($fields['is_recur_interval'])) {
-//            $errors['is_recur_interval'] = ts('Paperless Transaction does not support the recurring intervals setting.');
-//          }
-//
-//          if (!empty($fields['recur_frequency_unit']['day'])) {
-//            $errors['recur_frequency_unit'] = ts('Paperless Transaction does not support *day* as a recurring frequency.');
-//          }
-//
-//          break;
-//        }
-//      }
-//    }
-//  }
-//}
-
 function paperlesstrans_civicrm_buildForm($formName, &$form) {
   if ($formName == 'CRM_Contribute_Form_Contribution_Main' &&
     _paperlesstrans_paperlessEnabled($form)
@@ -216,8 +185,24 @@ function paperlesstrans_civicrm_buildForm($formName, &$form) {
     _paperlesstrans_buildForm_Contrib_front($form);
   }
 
-  if ($formName == 'CRM_Contribute_Form_Contribution_Confirm') {
-    //_paperless_debug('paperlesstrans_civicrm_buildForm confirm $form', $form);
+  if ($formName == 'CRM_Contribute_Form_Contribution_Confirm' &&
+    _paperlesstrans_paperlessSelected($form)
+  ) {
+    $templatePath = realpath(dirname(__FILE__)."/templates");
+    CRM_Core_Region::instance('page-body')->add(array(
+      'template' => "{$templatePath}/CRM/Contribute/Form/Contribution/Confirm.paperless.tpl"
+    ));
+    $session    = CRM_Core_Session::singleton();
+    $futureDate = $session->get("future_receive_date_{$form->_params['qfKey']}");
+
+    // override civi's receive date
+    // 1. this makes contribution receive-date and recur start-date created by
+    //    civi, set to future date, and hook doesn't require working it out.
+    // 2. Also thankyou template displays correct date.
+    // 3. Receipt will use same dates.
+    $futureDate = $futureDate ? $futureDate : date('YmdHis');
+    $form->_params['receive_date'] = $futureDate;
+    $form->assign('receive_date', $futureDate);
   }
 }
 
@@ -227,6 +212,7 @@ function paperlesstrans_civicrm_postProcess($formName, &$form) {
   ) {
     //_paperless_debug('paperlesstrans_civicrm_postProcess $form', $form);
     $session = CRM_Core_Session::singleton();
+    CRM_Core_Error::debug_var('Main $form->_submitValues', $form->_submitValues);
     if (!empty($form->_submitValues['future_receive_date'])) {
       $session->set("future_receive_date_{$form->_submitValues['qfKey']}", $form->_submitValues['future_receive_date']);
     }
@@ -270,6 +256,7 @@ function _paperlesstrans_buildForm_Contrib_front(&$form) {
   if (!empty($settings['enable_public_future_start'])) {
     $allow_days = empty($settings['days']) ? array('-1') : $settings['days'];
     $start_dates = _paperlesstrans_get_future_monthly_start_dates(time(), $allow_days);
+    CRM_Core_Error::debug_var('$start_dates', $start_dates);
     $form->add('select', 'future_receive_date', ts('Contribution Transaction Date'), $start_dates);
 
     CRM_Core_Region::instance('price-set-1')->add(array(
@@ -297,6 +284,25 @@ function _paperlesstrans_paperlessEnabled($form) {
   }
 
   return FALSE;
+}
+
+/**
+ * @param $form
+ *
+ * @return bool
+ *
+ * helper to determine if the contrib page has a paperless processor selected
+ */
+function _paperlesstrans_paperlessSelected($form) {
+  $pp = civicrm_api(
+    'PaymentProcessor', 
+    'getsingle', 
+    array(
+      'id'      => $form->_params['payment_processor_id'], 
+      'version' => 3
+    )
+  );
+  return in_array($pp['class_name'], array('Payment_PaperlessTransACH', 'Payment_PaperlessTransCC')); 
 }
 
 /**

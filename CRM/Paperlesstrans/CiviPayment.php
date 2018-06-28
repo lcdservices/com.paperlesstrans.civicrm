@@ -24,8 +24,6 @@ class CRM_Paperlesstrans_CiviPayment {
 
   public function isPaymentDue() {
     if ($this->recurId) {
-      CRM_Core_Error::debug_var('$this->recur', $this->recur);
-      CRM_Core_Error::debug_var('$this->paymentCount', $this->paymentCount);
       if ($this->recur->end_date || $this->recur->cancel_date) {
         return FALSE;
       }
@@ -35,23 +33,15 @@ class CRM_Paperlesstrans_CiviPayment {
       $offset   = "+{$this->recur->frequency_interval} {$this->recur->frequency_unit}";
       $now      = strtotime(CRM_Utils_Date::currentDBDate());
       $nextTime = strtotime($this->recur->start_date);
-      CRM_Core_Error::debug_var('$this->recur->start_date', $this->recur->start_date);
-      //$lastTime = strtotime($this->lastPayment->receive_date);
 
       // It's possible that any payment was delayed, and even though it's
       // time for payment, it won't be considered, if we base on last payment
       // receive date. E.g 1st Jan, 1st Feb, 15th Mar, 1st Apr.
       // To counter such problems, we consider recur start date as starting point
       for ($i = 1; $i <= $this->paymentCount; $i++) {
-        CRM_Core_Error::debug_var('$i', $i);
         $nextTime = strtotime($offset, $nextTime);
-        CRM_Core_Error::debug_var('$nextTime', $nextTime);
-        $readableNextTime = date('l dS \o\f F Y h:i:s A', $nextTime);
-        CRM_Core_Error::debug_var('$readableNextTime', $readableNextTime);
+        //$readableNextTime = date('l dS \o\f F Y h:i:s A', $nextTime);
       }
-      CRM_Core_Error::debug_var('$now', $now);
-      CRM_Core_Error::debug_var('$nextTime', $nextTime);
-      CRM_Core_Error::debug_var('$$now >= $nextTime', $now >= $nextTime);
       return ($now >= $nextTime);
     }
     return FALSE;
