@@ -316,9 +316,13 @@ function _paperlesstrans_get_future_monthly_start_dates($start_date, $allow_days
   $start_dates = array();
   // special handling for today - it means immediately or now.
   $today = date('YmdHis');
+  $todaysDay = date('j');
   // If not set, only allow for the first 28 days of the month.
   if (max($allow_days) <= 0) {
     $allow_days = range(1,28);
+  }
+  if (!in_array($todaysDay, $allow_days)) {
+    $start_dates[''] = ts('Now');
   }
   for ($j = 0; $j < count($allow_days); $j++) {
     // So I don't get into an infinite loop somehow ..
