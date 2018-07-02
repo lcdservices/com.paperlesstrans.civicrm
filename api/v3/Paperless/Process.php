@@ -12,7 +12,7 @@ use CRM_Paperlesstrans_ExtensionUtil as E;
  * @throws API_Exception
  */
 function civicrm_api3_paperless_Process($params) {
-  $limit   = CRM_Utils_Array::value('limit', $params, 10);
+  $limit   = CRM_Utils_Array::value('limit', $params, 25);
   $success = 0;
   $failed  = 0;
   $total   = 0;
@@ -21,7 +21,7 @@ function civicrm_api3_paperless_Process($params) {
   // Use civicrm_paperlesstrans_profilenumbers table to fetch recur records
   // along with their profile numbers.
   $sql = "
-    SELECT pl.*
+    SELECT pl.*, cr.payment_processor_id
     FROM   civicrm_paperlesstrans_profilenumbers pl
     INNER JOIN civicrm_contribution_recur cr ON pl.recur_id = cr.id
     INNER JOIN civicrm_payment_processor pp ON cr.payment_processor_id = pp.id
@@ -30,12 +30,12 @@ function civicrm_api3_paperless_Process($params) {
     //AND cr.id IN (20)
   $dao = CRM_Core_DAO::executeQuery($sql);
   while ($dao->fetch() && ($total <= $limit)) {
-    //$paymentProcessor = CRM_Financial_BAO_PaymentProcessor::getPayment($dao->payment_processor_id);
+    $paymentProcessor = CRM_Financial_BAO_PaymentProcessor::getPayment($dao->payment_processor_id);
     //_paperless_process_ppDebug('processrecur $paymentProcessor', $paymentProcessor);
 
     $payment = new CRM_Paperlesstrans_CiviPayment($dao->recur_id);
     if ($payment->isPaymentDue()) {
-      $rest = new CRM_Paperlesstrans_REST();
+      $rest = new CRM_Paperlesstrans_REST($paymentProcessor);
       $postData = array(
         'amount' => array(
           'value'    => $payment->recur->amount,
@@ -50,6 +50,8 @@ function civicrm_api3_paperless_Process($params) {
         $plResult = $rest->captureTransaction($postData);
         _paperless_process_ppDebug('plResult', $plResult);
       } catch (Exception $e) {
+        $failed++;
+        $messages[] = $e->getMessage();
         _paperless_process_ppDebug('plResult exception e', $e);
       }
 
@@ -102,14 +104,14 @@ function civicrm_api3_paperless_Process($params) {
           _paperless_process_ppDebug('paperless process civi trxn exception e', $e);
           _paperless_process_ppDebug('msg', $msg);
         }
-        $total = $success + $failed;
       } else {
         // Transaction was declined, or failed for other reason.
         $error_message = 'There was an error with the transaction. Please check logs: ';
-        _paperless_process_ppDebug($error_message, $result);
+        _paperless_process_ppDebug($error_message, $plResult);
       }
     }
     unset($payment);
+    $total = $success + $failed;
   }
   $dao->free();
 

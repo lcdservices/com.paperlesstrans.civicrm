@@ -116,7 +116,7 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
     }
 
     $this->_ppDebug('restTrxn $this->_reqParams', $this->_reqParams);
-    $rest = new CRM_Paperlesstrans_REST();
+    $rest = new CRM_Paperlesstrans_REST($this->_paymentProcessor, $this->_mode);
     try {
       $postProfile = array('source' => $this->_reqParams['source']);
       $result = $rest->createProfile($postProfile);
