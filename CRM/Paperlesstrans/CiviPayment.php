@@ -3,9 +3,8 @@
 class CRM_Paperlesstrans_CiviPayment {
 
   var $recurId      = NULL;
-  //var $firstPayment = NULL;
-  //var $lastPayment  = NULL;
   var $recur        = NULL;
+  var $logMessage   = FALSE;
 
   /**
    * @param int $recurId
@@ -16,18 +15,20 @@ class CRM_Paperlesstrans_CiviPayment {
     if ($recur->find(TRUE)) {
       $this->recur   = $recur;
       $this->recurId = $recur->id;
-      //$this->getFirstPayment();
-      //$this->getLastPayment();
       $this->getPaymentCount();
     }
   }
 
   public function isPaymentDue() {
+    $result = FALSE;
     if ($this->recurId) {
       if ($this->recur->end_date || $this->recur->cancel_date) {
+        $this->setMessage('Payment not due. Recur ended or cancelled.');
         return FALSE;
       }
       if ($this->recur->installments && ($this->paymentCount >= $this->recur->installments)) {
+        $this->setMessage("Payment not due. Number of installments already reached - {$this->paymentCount}/{$this->recur->installments}.");
+        //TODO: update recur with end date
         return FALSE;
       }
       $offset   = "+{$this->recur->frequency_interval} {$this->recur->frequency_unit}";
@@ -40,41 +41,16 @@ class CRM_Paperlesstrans_CiviPayment {
       // To counter such problems, we consider recur start date as starting point
       for ($i = 1; $i <= $this->paymentCount; $i++) {
         $nextTime = strtotime($offset, $nextTime);
-        //$readableNextTime = date('l dS \o\f F Y h:i:s A', $nextTime);
       }
-      return ($now >= $nextTime);
+      $readableNextTime = date('l dS \o\f F Y h:i:s A', $nextTime);
+      $result = ($now >= $nextTime);
+      if (!$result) {
+        $this->setMessage("Payment not due yet. Due on {$readableNextTime}");
+      }
+      return $result;
     }
     return FALSE;
   }
-  //public function getFirstPayment() {
-  //  // fixme: status generalize
-  //  $query = "
-  //    SELECT c.*
-  //    FROM  civicrm_contribution c
-  //    INNER JOIN civicrm_contribution_recur r on c.contribution_recur_id = r.id
-  //    WHERE r.id = %1 AND c.contribution_status_id = 1
-  //    ORDER BY c.receive_date LIMIT 1";
-  //  $firstPayment = CRM_Core_DAO::executeQuery($query, array(1 => array($this->recur->id, 'Positive')));
-  //  if ($firstPayment->fetch()) {
-  //    $this->firstPayment = $firstPayment;
-  //  }
-  //  return $this->firstPayment;
-  //}
-
-  //public function getLastPayment() {
-  //  // fixme: status generalize
-  //  $query = "
-  //    SELECT c.*
-  //    FROM  civicrm_contribution c
-  //    INNER JOIN civicrm_contribution_recur r on c.contribution_recur_id = r.id
-  //    WHERE r.id = %1 AND c.contribution_status_id = 1
-  //    ORDER BY c.receive_date DESC LIMIT 1";
-  //  $lastPayment = CRM_Core_DAO::executeQuery($query, array(1 => array($this->recur->id, 'Positive')));
-  //  if ($lastPayment->fetch()) {
-  //    $this->lastPayment = $lastPayment;
-  //  }
-  //  return $this->lastPayment;
-  //}
 
   public function getPaymentCount() {
     // fixme: status generalize
@@ -109,5 +85,23 @@ class CRM_Paperlesstrans_CiviPayment {
       }
     }
     return $num.'th';
+  }
+
+  public function enableMessage() {
+    $this->logMessage = TRUE;
+  }
+
+  public function setMessage($msg) {
+    if ($this->logMessage) {
+      $query = "
+        UPDATE civicrm_paperlesstrans_profilenumbers
+        SET    processed_date = NOW(), message = %2
+        WHERE  recur_id = %1";
+      return CRM_Core_DAO::singleValueQuery($query, array(
+        1 => array($this->recur->id, 'Positive'),
+        2 => array($msg, 'String'),
+      ));
+    }
+    return FALSE;
   }
 }

@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS `civicrm_paperlesstrans_profilenumbers` (
   `cid` int(10) unsigned DEFAULT '0' COMMENT 'CiviCRM contact id',
   `email` varchar(255) DEFAULT NULL COMMENT 'CiviCRM Email address',
   `recur_id` int(10) unsigned DEFAULT '0' COMMENT 'CiviCRM recurring_contribution table id',
+  `processed_date` datetime DEFAULT NULL COMMENT 'date cron tried to process any payments for the recur.',
+  `message` text COLLATE utf8_unicode_ci COMMENT 'log message of last cron process',
   PRIMARY KEY ( `id` ),
   UNIQUE INDEX (`profile_number`),
   KEY (`cid`),
