@@ -4,15 +4,10 @@ class CRM_Paperlesstrans_REST {
   public $ch;
   public $url;
   public $mode;
-  public $production = 0;
   protected $paymentProcessor;
 
   public function __construct($paymentProcessor, $mode = 'live') {
     $this->mode = $mode;
-    if (!$this->production) {
-      // only for dev/test
-      $this->mode = 'test';
-    }
     $this->paymentProcessor = $paymentProcessor;
   }  
   public function __destruct() {
