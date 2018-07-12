@@ -41,6 +41,8 @@ class CRM_Paperlesstrans_REST {
     );
     if ($this->mode == 'test') {
       $curlParams[CURLOPT_HTTPHEADER][] = "TestFlag: true";
+    } else {
+      $curlParams[CURLOPT_HTTPHEADER][] = "TestFlag: false";
     }
     curl_setopt_array($this->ch, $curlParams);
     $response = curl_exec($this->ch);
