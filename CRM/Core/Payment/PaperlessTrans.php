@@ -382,8 +382,7 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
   function _ppDebug($msg, $var, $force = FALSE, $level = 1) {
     if (Civi::settings()->get('debug_enabled') || $force) {
       if ($this->_ppDebugLevel >= $level) {
-        //CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE, 'paperless');
-        CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE);
+        CRM_Core_Error::debug_var($msg, $var, TRUE, TRUE, 'paperless');
       }
     }
   }
@@ -496,7 +495,8 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       // Set contribution status to success.
       $params['contribution_status_id'] = array_search('Completed', $contributionStatus);
       $params['payment_status_id'] = array_search('Completed', $contributionStatus);
-    } else if (!empty($params['future_receive_date'])) {
+    }
+    elseif (!empty($params['future_receive_date'])) {
       // future date selected
       // Set contribution status to pending.
       $params['contribution_status_id'] = array_search('Pending', $contributionStatus);
@@ -505,7 +505,8 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       //Note: since we override receive_date in buildForm hook, any initial
       //contribution or recur will have receive-date or start-date set
       //correctly. Otherwise we 'll have to set the dates at this point.
-    } else {
+    }
+    else {
       $msg = !empty($result['message']) ? $result['message'] : 'Neither Trxn nor Future date is present. Something wrong.';
       return self::error(2, $msg);
     }

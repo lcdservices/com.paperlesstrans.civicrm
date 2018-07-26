@@ -19,7 +19,7 @@ class CRM_Paperlesstrans_REST {
       // close if already exist to create new obj
       curl_close($this->ch);
     }
-    $this->ch  = curl_init();
+    $this->ch = curl_init();
     $this->url = rtrim($this->paymentProcessor["url_site"], '/') . $url;
   }
 
@@ -37,22 +37,29 @@ class CRM_Paperlesstrans_REST {
         "Cache-Control: no-cache",
         "Content-Type: application/json",
         "TerminalKey: {$this->paymentProcessor['password']}",
+        "TestFlag: false",
       ),
     );
+
     if ($this->mode == 'test') {
       $curlParams[CURLOPT_HTTPHEADER][] = "TestFlag: true";
-    } else {
-      $curlParams[CURLOPT_HTTPHEADER][] = "TestFlag: false";
     }
+
     curl_setopt_array($this->ch, $curlParams);
     $response = curl_exec($this->ch);
-    if(curl_error($this->ch)) {
+
+    if (curl_error($this->ch)) {
       throw new Exception("API call to {$this->url} failed: " . curl_error($this->ch));
     }
+
     $result = json_decode($response, true);
-    CRM_Core_Error::debug_var('$curlParams', $curlParams);
-    CRM_Core_Error::debug_var('curl post $params', $params);
-    CRM_Core_Error::debug_var('curl result', $result);
+
+    CRM_Core_Error::debug_var('curl call $this', $this, TRUE, TRUE, 'paperless');
+    CRM_Core_Error::debug_var('curl $response', $response, TRUE, TRUE, 'paperless');
+    CRM_Core_Error::debug_var('curl $curlParams', $curlParams, TRUE, TRUE, 'paperless');
+    CRM_Core_Error::debug_var('curl post $params', $params, TRUE, TRUE, 'paperless');
+    CRM_Core_Error::debug_var('curl result', $result, TRUE, TRUE, 'paperless');
+
     return $result;
   }
 
