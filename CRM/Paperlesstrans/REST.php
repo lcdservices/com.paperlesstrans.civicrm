@@ -37,13 +37,9 @@ class CRM_Paperlesstrans_REST {
         "Cache-Control: no-cache",
         "Content-Type: application/json",
         "TerminalKey: {$this->paymentProcessor['password']}",
-        "TestFlag: false",
       ),
     );
-
-    if ($this->mode == 'test') {
-      $curlParams[CURLOPT_HTTPHEADER][] = "TestFlag: true";
-    }
+    $curlParams[CURLOPT_HTTPHEADER][] = ($this->mode == 'test') ? "TestFlag: true" : "TestFlag: false";
 
     curl_setopt_array($this->ch, $curlParams);
     $response = curl_exec($this->ch);

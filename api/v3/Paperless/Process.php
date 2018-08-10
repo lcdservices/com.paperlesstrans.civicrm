@@ -22,14 +22,14 @@ function civicrm_api3_paperless_Process($params) {
   // Use civicrm_paperlesstrans_profilenumbers table to fetch recur records
   // along with their profile numbers.
   $sql = "
-    SELECT   pl.*, cr.payment_processor_id
+    SELECT   pl.profile_number, pl.recur_id, cr.payment_processor_id
     FROM     civicrm_paperlesstrans_profilenumbers pl
     JOIN     civicrm_contribution_recur cr ON pl.recur_id = cr.id
     JOIN     civicrm_payment_processor  pp ON cr.payment_processor_id = pp.id
     JOIN     civicrm_contribution       cc ON cc.contribution_recur_id = cr.id
     WHERE    pp.class_name IN ('Payment_PaperlessTransACH', 'Payment_PaperlessTransCC') 
     AND      (DATEDIFF(NOW(), processed_date) >= 1 OR processed_date IS NULL)
-    GROUP BY cr.id
+    GROUP BY cr.id, pl.profile_number
     LIMIT    {$limit}";
   $dao = CRM_Core_DAO::executeQuery($sql);
   while ($dao->fetch()) {
