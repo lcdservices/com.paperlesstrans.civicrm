@@ -466,6 +466,9 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       //to create one for downstream processing
       $params['contributionRecurID'] = $this->_createRecurringContrib($params);
       $this->_setParam('contributionRecurID', $params['contributionRecurID']);
+
+      //note: we don't want to set $params['is_recur'] flag, because on UI it would display 
+      //as if a recurring contribution is taking place.
     }
 
     //// Recurring payments or one-time future
@@ -501,6 +504,14 @@ class CRM_Core_Payment_PaperlessTrans extends CRM_Core_Payment {
       // Set contribution status to pending.
       $params['contribution_status_id'] = array_search('Pending', $contributionStatus);
       $params['payment_status_id'] = array_search('Pending', $contributionStatus);
+
+      if (empty($params['is_recur'])) {
+        // not recurring but future, i.e one time future 
+        // we created recur id, ourself, and should make sure contribution is linked.
+        //
+        // note we can't just set it in $params because core isn't going to update it due to pending status
+        CRM_Core_DAO::setFieldValue('CRM_Contribute_DAO_Contribution', $params['contributionID'], 'contribution_recur_id', $params['contributionRecurID']);
+      }
 
       //Note: since we override receive_date in buildForm hook, any initial
       //contribution or recur will have receive-date or start-date set
