@@ -255,8 +255,14 @@ function _paperlesstrans_buildForm_Contrib_front(&$form) {
 
   if (!empty($settings['enable_public_future_start'])) {
     $allow_days = empty($settings['days']) ? array('-1') : $settings['days'];
-    $start_dates = _paperlesstrans_get_future_monthly_start_dates(time(), $allow_days);
-    CRM_Core_Error::debug_var('$start_dates', $start_dates);
+    $datetime   = $form->get('future_receive_date_time');
+    if (empty($datetime)) {
+      // this is to make sure we not rebuilding array indexes, as user goes back and forward
+      // on the wizard. Otherwise element default doesn't work.
+      $datetime = time();
+      $form->set('future_receive_date_time', $datetime);
+    }
+    $start_dates = _paperlesstrans_get_future_monthly_start_dates($datetime, $allow_days);
     $form->add('select', 'future_receive_date', ts('Contribution Transaction Date'), $start_dates);
 
     CRM_Core_Region::instance('price-set-1')->add(array(
