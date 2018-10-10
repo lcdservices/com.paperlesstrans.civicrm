@@ -15,7 +15,7 @@ class CRM_Paperlesstrans_Form_PaperlessSettings extends CRM_Core_Form {
     );
 
     $days = array('-1' => 'disabled');
-    for ($i = 1; $i <= 28; $i++) {
+    for ($i = 1; $i <= 31; $i++) {
       $days["$i"] = "$i";
     }
     $attr = array(

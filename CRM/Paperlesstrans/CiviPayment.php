@@ -31,16 +31,23 @@ class CRM_Paperlesstrans_CiviPayment {
         //TODO: update recur with end date
         return FALSE;
       }
-      $offset   = "+{$this->recur->frequency_interval} {$this->recur->frequency_unit}";
       $now      = strtotime(CRM_Utils_Date::currentDBDate());
       $nextTime = strtotime($this->recur->start_date);
+      $startTime = $nextTime;
 
       // It's possible that any payment was delayed, and even though it's
       // time for payment, it won't be considered, if we base on last payment
       // receive date. E.g 1st Jan, 1st Feb, 15th Mar, 1st Apr.
       // To counter such problems, we consider recur start date as starting point
       for ($i = 1; $i <= $this->paymentCount; $i++) {
-        $nextTime = strtotime($offset, $nextTime);
+        $interval = $this->recur->frequency_interval * $i;
+        $offset   = "+{$interval} {$this->recur->frequency_unit}";
+        $nextTime = strtotime($offset, $startTime);
+        if ($this->recur->frequency_unit == 'month') {
+          while (((date('m', $startTime) + $interval) % 12) != (date('m', $nextTime) % 12)) {
+            $nextTime = strtotime('-1 day', $nextTime);
+          }
+        }
       }
       $readableNextTime = date('l dS \o\f F Y h:i:s A', $nextTime);
       $result = ($now >= $nextTime);
